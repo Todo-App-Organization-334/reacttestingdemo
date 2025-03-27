@@ -1,8 +1,8 @@
 module.exports = {
   collectCoverage: true,
   collectCoverageFrom: [
-    "src/components/AddInput/**/*.js", // Include AddInput component
-    "src/components/Todo/**/*.js", // Include Todo component
+    "src/components/AddInput/**/*.js",
+    "src/components/Todo/**/*.js",
   ],
   coverageThreshold: {
     global: {
@@ -12,8 +12,16 @@ module.exports = {
       lines: 90,
     },
   },
-  testPathIgnorePatterns: ["/node_modules/", "/public/"], // Ignore untested files
+  testPathIgnorePatterns: ["/node_modules/", "/public/"],
   moduleNameMapper: {
     "\\.(css|less|scss|sass)$": "identity-obj-proxy",
   },
+  // jest.config.js
+
+  testEnvironment: "jest-fixed-jsdom",
+  testEnvironmentOptions: {
+    customExportConditions: [""],
+  },
+  testEnvironment: "jsdom",
+  maxWorkers: "50%",
 };

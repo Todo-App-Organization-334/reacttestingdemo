@@ -11,8 +11,9 @@ const MockFollowerComponent = () => (
 describe("Unit Tests (Component Behavior)", () => {
   it("Should render the Header component with the correct title.", () => {
     render(<MockFollowerComponent />);
-    const headingElement = screen.getByRole("heading");
-    expect(headingElement.value).toHaveTextContent("Followers");
+    const headingElement = screen.getByRole("heading", { name: /followers/i });
+    expect(headingElement).toBeInTheDocument();
+    expect(headingElement).toHaveTextContent("Followers");
   });
 
   it("Should render the FollowersList component.", () => {});
