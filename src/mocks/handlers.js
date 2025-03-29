@@ -2,6 +2,7 @@ import { rest } from "msw";
 
 export const handlers = [
   rest.get("https://randomuser.me/api/?results=5", (req, res, ctx) => {
+    const results = req.url.searchParams.get("results");
     return res(
       ctx.status(200),
       ctx.json({

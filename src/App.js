@@ -4,11 +4,6 @@ import Banner from "./components/Banner/Banner";
 import { Switch, Route } from "react-router-dom";
 import TodoPage from "./pages/TodoPage/TodoPage";
 import FollowersPage from "./pages/FollowersPage/FollowersPage";
-import { worker } from "./mocks/browser";
-
-if (process.env.NODE_ENV === "development") {
-  worker.start();
-}
 
 function App() {
   return (
