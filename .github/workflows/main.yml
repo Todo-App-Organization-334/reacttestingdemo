@@ -1,57 +1,76 @@
 name: Deploy to AWS S3
-"on":
+on:
   push:
     branches:
       - main
+
 jobs:
   test:
     runs-on: ubuntu-latest
     outputs:
-      coverage_passed: "${{ steps.check_coverage.outcome == 'success' }}"
+      coverage_passed: ${{ steps.set_output.outputs.coverage_passed }}
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v3
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
+
       - name: Install Dependencies
         run: npm install
+
       - name: Run Tests with Coverage
-        run: npm test -- --coverage --coverageReporters="text-summary"
+        run: npm test -- --coverage --coverageReporters="json-summary"
+
       - name: Check Coverage Threshold
         id: check_coverage
-        run: >
+        run: |
           THRESHOLD=90
+          COVERAGE_OUTPUT=$(npx jest --coverage --coverageReporters="json-summary" --silent)
+          echo "$COVERAGE_OUTPUT" > coverage-summary.json
+          STMT_COVERAGE=$(jq '.total.statements.pct' coverage-summary.json)
 
-          STMT_COVERAGE=$(npx jest --coverage --coverageReporters="json-summary"
-          --silent | jq '.total.statements.pct')
+          echo "Statement Coverage: $STMT_COVERAGE%"
 
           if (( $(echo "$STMT_COVERAGE >= $THRESHOLD" | bc -l) )); then
-            echo "Coverage meets the required threshold: $STMT_COVERAGE%"
+            echo "✅ Coverage meets the required threshold: $STMT_COVERAGE%"
+            echo "coverage_passed=true" >> $GITHUB_ENV
           else
             echo "❌ Coverage is too low: $STMT_COVERAGE% (required: $THRESHOLD%)"
             exit 1
           fi
+
+      - name: Set Output Variable
+        id: set_output
+        run: echo "coverage_passed=${{ env.coverage_passed }}" >> $GITHUB_OUTPUT
+
   deploy:
     needs: test
     if: needs.test.outputs.coverage_passed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v1
-      - name: NodeJs Setup
-        uses: actions/setup-node@v1
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: 18
-      - name: Dependency Installation
+
+      - name: Install Dependencies
         run: npm install
-      - name: App Build
+
+      - name: Build Application
         run: npm run build
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: "${{secrets.AWS_ACCESS_KEY_ID}}"
-          aws-secret-access-key: "${{secrets.AWS_SECRET_ACCESS_KEY}}"
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1 # Set the correct AWS region
+
       - name: Deploy to AWS S3
-        run: "aws s3 sync build s3://demotestbucket334 --delete"
+        run: aws s3 sync build s3://demotestbucket334 --delete
