@@ -28,7 +28,7 @@ jobs:
         run: npm ci
 
       - name: Run Tests with Coverage
-        run: npm run coverage -- --forceExit --detectOpenHandles
+        run: CI=true npm test -- --coverage --watchAll=false --maxWorkers=2 --forceExit --detectOpenHandles
 
       - name: Check Coverage Threshold for Each File
         id: check_coverage

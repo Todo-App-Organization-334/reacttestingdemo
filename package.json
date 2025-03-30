@@ -46,9 +46,8 @@
     "@testing-library/jest-dom": "^5.16.5",
     "identity-obj-proxy": "^3.0.0"
   },
-  "jest": {
+ "jest": {
   "collectCoverage": true,
-  "coverageDirectory": "coverage",
-  "coverageReporters": ["json", "lcov", "text"]
+  "coverageDirectory": "coverage"
 }
 }
