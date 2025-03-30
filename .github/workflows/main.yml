@@ -34,9 +34,9 @@ jobs:
         id: check_coverage
         run: |
           THRESHOLD=90
-          COVERAGE_FILE=coverage/coverage-summary.json
+          COVERAGE_FILE=$(find . -name "coverage-summary.json" | head -n 1)
 
-          if [ ! -f "$COVERAGE_FILE" ]; then
+          if [ -z "$COVERAGE_FILE" ]; then
             echo "❌ Coverage report not found!"
             exit 1
           fi
