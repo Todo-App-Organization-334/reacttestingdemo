@@ -48,6 +48,9 @@
   },
  "jest": {
   "collectCoverage": true,
-  "coverageDirectory": "coverage"
+  "coverageDirectory": "coverage",
+  "transformIgnorePatterns": [
+    "node_modules/(?!axios)/"  
+  ]
 }
 }
