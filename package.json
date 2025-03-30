@@ -46,11 +46,9 @@
     "@testing-library/jest-dom": "^5.16.5",
     "identity-obj-proxy": "^3.0.0"
   },
- "jest": {
-  "collectCoverage": true,
-  "coverageDirectory": "coverage",
-  "transformIgnorePatterns": [
-    "node_modules/(?!axios)/"  
-  ]
-}
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!axios)/"  
+    ]
+  }
 }

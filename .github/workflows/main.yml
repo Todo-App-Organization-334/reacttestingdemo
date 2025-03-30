@@ -17,6 +17,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
+
       - name: Cache Node Modules
         uses: actions/cache@v3
         with:
@@ -28,15 +29,15 @@ jobs:
         run: npm ci
 
       - name: Run Tests with Coverage
-        run: npm run coverage -- --forceExit --detectOpenHandles
+        run: npm test -- --coverage --watchAll=false --maxWorkers=2 --forceExit --detectOpenHandles
 
       - name: Check Coverage Threshold for Each File
         id: check_coverage
         run: |
           THRESHOLD=90
-          COVERAGE_FILE=$(find . -name "coverage-summary.json" | head -n 1)
+          COVERAGE_FILE="coverage/coverage-summary.json"
 
-          if [ -z "$COVERAGE_FILE" ]; then
+          if [ ! -f "$COVERAGE_FILE" ]; then
             echo "❌ Coverage report not found!"
             exit 1
           fi
