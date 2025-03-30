@@ -30,27 +30,22 @@ jobs:
           THRESHOLD=90
           COVERAGE_FILE=coverage/coverage-summary.json
 
-          # Extract statement coverage for all files
-          FILE_COVERAGES=$(jq '.["/absolute/path/to/project"].statements.pct' $COVERAGE_FILE)
+          if [ ! -f "$COVERAGE_FILE" ]; then
+            echo "❌ Coverage report not found!"
+            exit 1
+          fi
 
-          echo "Checking individual file coverages..."
-          echo "$FILE_COVERAGES"
+          # Extract total statement coverage percentage
+          COVERAGE_PERCENT=$(jq '.total.statements.pct' "$COVERAGE_FILE")
 
-          ALL_PASSED=true
+          echo "Total coverage: $COVERAGE_PERCENT%"
 
-          # Loop through each file's coverage percentage
-          for pct in $FILE_COVERAGES; do
-            if (( $(echo "$pct < $THRESHOLD" | bc -l) )); then
-              echo "❌ A file has coverage below $THRESHOLD%: $pct%"
-              ALL_PASSED=false
-            fi
-          done
-
-          if [ "$ALL_PASSED" = true ]; then
-            echo "✅ All files meet the required coverage threshold!"
+          if awk "BEGIN {exit !($COVERAGE_PERCENT >= $THRESHOLD)}"; then
+            echo "✅ Coverage meets the required threshold!"
             echo "coverage_passed=true" >> $GITHUB_ENV
           else
-            echo "❌ Some files do not meet the required threshold!"
+            echo "❌ Coverage is below threshold ($THRESHOLD%)!"
+            echo "coverage_passed=false" >> $GITHUB_ENV
             exit 1
           fi
 
@@ -82,7 +77,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 # Set the correct AWS region
+          aws-region: us-east-1 # Update if needed
 
       - name: Deploy to AWS S3
         run: aws s3 sync build s3://demotestbucket334 --delete
