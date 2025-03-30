@@ -22,23 +22,35 @@ jobs:
         run: npm install
 
       - name: Run Tests with Coverage
-        run: npm test -- --coverage --coverageReporters="json-summary"
+        run: npm test -- --coverage --coverageReporters="json"
 
-      - name: Check Coverage Threshold
+      - name: Check Coverage Threshold for Each File
         id: check_coverage
         run: |
           THRESHOLD=90
-          COVERAGE_OUTPUT=$(npx jest --coverage --coverageReporters="json-summary" --silent)
-          echo "$COVERAGE_OUTPUT" > coverage-summary.json
-          STMT_COVERAGE=$(jq '.total.statements.pct' coverage-summary.json)
+          COVERAGE_FILE=coverage/coverage-summary.json
 
-          echo "Statement Coverage: $STMT_COVERAGE%"
+          # Extract statement coverage for all files
+          FILE_COVERAGES=$(jq '.["/absolute/path/to/project"].statements.pct' $COVERAGE_FILE)
 
-          if (( $(echo "$STMT_COVERAGE >= $THRESHOLD" | bc -l) )); then
-            echo "✅ Coverage meets the required threshold: $STMT_COVERAGE%"
+          echo "Checking individual file coverages..."
+          echo "$FILE_COVERAGES"
+
+          ALL_PASSED=true
+
+          # Loop through each file's coverage percentage
+          for pct in $FILE_COVERAGES; do
+            if (( $(echo "$pct < $THRESHOLD" | bc -l) )); then
+              echo "❌ A file has coverage below $THRESHOLD%: $pct%"
+              ALL_PASSED=false
+            fi
+          done
+
+          if [ "$ALL_PASSED" = true ]; then
+            echo "✅ All files meet the required coverage threshold!"
             echo "coverage_passed=true" >> $GITHUB_ENV
           else
-            echo "❌ Coverage is too low: $STMT_COVERAGE% (required: $THRESHOLD%)"
+            echo "❌ Some files do not meet the required threshold!"
             exit 1
           fi
 
