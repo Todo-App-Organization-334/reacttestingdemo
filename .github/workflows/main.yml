@@ -54,16 +54,11 @@ jobs:
             exit 1
           fi
 
-          # Get all component files
           COMPONENT_FILES=$(jq -r 'keys[] | select(contains("__tests__") | not)' "$COVERAGE_FILE")
-
           if [ -z "$COMPONENT_FILES" ]; then
             echo "❌ No component files found in coverage report!"
             exit 1
           fi
-
-          echo "Checking coverage for components:"
-          echo "$COMPONENT_FILES"
 
           FAILED_FILES=0
           while IFS= read -r file; do
@@ -84,50 +79,56 @@ jobs:
           if [ "$FAILED_FILES" -gt 0 ]; then
             echo "❌ $FAILED_FILES components below $THRESHOLD% coverage"
             echo "coverage_passed=false" >> $GITHUB_ENV
+            echo "coverage_passed=false" >> $GITHUB_OUTPUT
             exit 1
           else
             echo "✅ All components meet $THRESHOLD% coverage"
             echo "coverage_passed=true" >> $GITHUB_ENV
-          fi
+            echo "coverage_passed=true" >> $GITHUB_OUTPUT
 
-  deploy:
-    needs: test
-    if: needs.test.outputs.coverage_passed == 'true'
-    runs-on: ubuntu-latest
+            deploy:
+              needs: test
+              if: needs.test.outputs.coverage_passed == 'true'
+              runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+              steps:
+                - name: Checkout Code
+                  uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+                - name: Setup Node.js
+                  uses: actions/setup-node@v3
+                  with:
+                    node-version: 18
 
-      - name: Install Dependencies
-        run: npm ci
+                - name: Install Dependencies
+                  run: npm ci
 
-      - name: Build Application
-        run: npm run build
+                - name: Build Application
+                  run: npm run build
 
-      - name: Debug - Check Build Folder
-        run: |
-          echo "Checking build directory:"
-          ls -l build || echo "⚠️ Build folder is missing!"
+                - name: Debug - Check Test Output
+                  run: |
+                    echo "Deploy Job: Test Coverage Passed - ${{ needs.test.outputs.coverage_passed }}"
 
-      - name: Debug - Check AWS S3 Bucket Name
-        run: |
-          echo "Target S3 Bucket: ${{ secrets.AWS_S3_BUCKET_NAME }}"
+                - name: Debug - Check Build Folder
+                  run: |
+                    echo "Checking build directory:"
+                    ls -l build || echo "⚠️ Build folder is missing!"
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+                - name: Debug - Check AWS S3 Bucket Name
+                  run: |
+                    echo "Target S3 Bucket: ${{ secrets.AWS_S3_BUCKET_NAME }}"
 
-      - name: Deploy to AWS S3
-        run: aws s3 sync build/ s3://${{ secrets.AWS_S3_BUCKET_NAME }} --delete --exact-timestamps --debug
+                - name: Configure AWS Credentials
+                  uses: aws-actions/configure-aws-credentials@v1
+                  with:
+                    aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                    aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                    aws-region: us-east-1
 
-      - name: Debug - List S3 Bucket Contents
-        run: aws s3 ls s3://${{ secrets.AWS_S3_BUCKET_NAME }} --recursive
+                - name: Deploy to AWS S3
+                  run: |
+                    aws s3 sync build/ s3://${{ secrets.AWS_S3_BUCKET_NAME }} --delete --exact-timestamps --debug
+
+                - name: Debug - List S3 Bucket Contents
+                  run: aws s3 ls s3://${{ secrets.AWS_S3_BUCKET_NAME }} --recursive
