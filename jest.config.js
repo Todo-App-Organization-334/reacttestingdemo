@@ -19,13 +19,13 @@ module.exports = {
   // Modified coverage thresholds
   coverageThreshold: {
     global: {
-      statements: 0, // No global threshold
+      statements: 0, // Disable global thresholds
       branches: 0,
       functions: 0,
       lines: 0,
     },
-    // Only enforce for test files
-    "./src/**/__tests__/**/*.test.js": {
+    // Only enforce for components
+    "./src/components/**/*.js": {
       statements: 90,
       branches: 90,
       functions: 90,
