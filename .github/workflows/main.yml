@@ -94,9 +94,8 @@ jobs:
     needs: test
     if: needs.test.outputs.coverage_passed == 'true'
     runs-on: ubuntu-latest
-    steps:
-      # ... keep existing deploy steps unchanged ...
 
+    steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
@@ -106,10 +105,19 @@ jobs:
           node-version: 18
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build Application
         run: npm run build
+
+      - name: Debug - Check Build Folder
+        run: |
+          echo "Checking build directory:"
+          ls -l build || echo "⚠️ Build folder is missing!"
+
+      - name: Debug - Check AWS S3 Bucket Name
+        run: |
+          echo "Target S3 Bucket: ${{ secrets.AWS_S3_BUCKET_NAME }}"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -119,4 +127,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy to AWS S3
-        run: aws s3 sync build s3://${{ secrets.AWS_S3_BUCKET_NAME }} --delete --exact-timestamps
+        run: aws s3 sync build/ s3://${{ secrets.AWS_S3_BUCKET_NAME }} --delete --exact-timestamps --debug
+
+      - name: Debug - List S3 Bucket Contents
+        run: aws s3 ls s3://${{ secrets.AWS_S3_BUCKET_NAME }} --recursive
