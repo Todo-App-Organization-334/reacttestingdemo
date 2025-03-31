@@ -42,13 +42,30 @@ jobs:
             exit 1
           fi
 
-          # Extract coverage for test files only
-          TEST_FILES=$(jq -r 'keys[] | select(test("\\.test\\.js$"))' "$COVERAGE_FILE")
+          # Debug: Show first 100 lines of coverage file
+          echo "First 100 lines of coverage file:"
+          head -n 100 "$COVERAGE_FILE"
+
+          # Try multiple patterns to find test files
+          TEST_FILES=$(jq -r 'keys[] | select(test("(\\.test\\.js|\\.spec\\.js|Test\\.js)$"))' "$COVERAGE_FILE" || true)
 
           if [ -z "$TEST_FILES" ]; then
-            echo "❌ No test files found in coverage report!"
-            exit 1
+            echo "⚠️ No test files found using standard patterns. Checking all files..."
+            # If no test files found, check all files to verify coverage exists
+            ALL_FILES=$(jq -r 'keys[]' "$COVERAGE_FILE")
+            if [ -z "$ALL_FILES" ]; then
+              echo "❌ No files found in coverage report at all!"
+              exit 1
+            else
+              echo "ℹ️ Found these files in coverage report:"
+              echo "$ALL_FILES"
+              echo "❌ No test files found matching expected patterns (*.test.js, *.spec.js, *Test.js)"
+              exit 1
+            fi
           fi
+
+          echo "Found test files:"
+          echo "$TEST_FILES"
 
           FAILED_FILES=0
           while IFS= read -r file; do
