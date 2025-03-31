@@ -27,7 +27,11 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
+      - name: Debug - List Jest test files
+        run: npx jest --listTests # Check if Jest detects test files
 
+      - name: Debug - Check if test files exist
+        run: ls -R src/components | grep test.js || echo "No test files found" # Verify test files exist in CI/CD
       - name: Clear Jest Cache
         run: npx jest --clearCache
 

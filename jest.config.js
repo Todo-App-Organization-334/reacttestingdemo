@@ -1,9 +1,6 @@
 module.exports = {
   testEnvironment: "jsdom",
-  testMatch: [
-    "**/__tests__/**/*.test.[jt]s?(x)", // Matches your renamed folders
-    "**/?(*.)+(spec|test).[jt]s?(x)", // Fallback pattern
-  ],
+  testMatch: ["**/src/components/**/__tests__/**/*.test.js"],
   testPathIgnorePatterns: ["/node_modules/", "/public/"],
   setupFilesAfterEnv: ["@testing-library/jest-dom/extend-expect"],
 
