@@ -6,9 +6,8 @@ module.exports = {
   //   "**/*.test.js", // Fallback for standard test files
   // ],
   testMatch: [
-    "**/__tests__/**/*.[jt]s?(x)",
-    "**/__test__/**/*.[jt]s?(x)",
-    "**/?(*.)+(spec|test).[jt]s?(x)",
+    "**/__tests__/**/*.?(test|spec).[jt]s?(x)",
+    "**/?(*.)+(test|spec).[jt]s?(x)",
   ],
   testPathIgnorePatterns: ["/node_modules/", "/public/"],
   setupFilesAfterEnv: ["@testing-library/jest-dom/extend-expect"],
