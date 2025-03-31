@@ -3,6 +3,7 @@ import TodoFooter from "../TodoFooter/TodoFooter";
 import "./TodoList.css";
 
 function TodoList({ todos, setTodos }) {
+  console.log("todo is", todos);
   const updateTask = (id) => {
     let updatedTasks = todos.map((todo) => {
       if (todo.id === id) {
@@ -29,7 +30,9 @@ function TodoList({ todos, setTodos }) {
         <div>
           {todos.map((todo, index) => (
             <div
-              className={`todo-item ${todo.completed && "todo-item-active"}`}
+              className={`todo-item ${
+                todo.completed ? "todo-item-active" : ""
+              }`}
               key={index}
               onClick={() => updateTask(todo.id)}
               data-testid="task-container"
