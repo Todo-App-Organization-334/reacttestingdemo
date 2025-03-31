@@ -18,6 +18,7 @@ module.exports = {
       lines: 90,
     },
   },
+  coverageDirectory: "coverage",
   coverageReporters: ["json-summary", "text", "lcov"],
   testPathIgnorePatterns: ["/node_modules/", "/public/"],
   moduleNameMapper: {

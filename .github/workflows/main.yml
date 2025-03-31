@@ -37,8 +37,14 @@ jobs:
           THRESHOLD=90
           COVERAGE_FILE="coverage/coverage-summary.json"
 
+          # Debug: List files in coverage directory
+          echo "Contents of coverage directory:"
+          ls -la coverage/
+
           if [ ! -f "$COVERAGE_FILE" ]; then
-            echo "❌ Coverage report not found!"
+            echo "❌ Coverage report not found! Looked for: $COVERAGE_FILE"
+            echo "Available files in coverage directory:"
+            ls -la coverage/
             exit 1
           fi
 
