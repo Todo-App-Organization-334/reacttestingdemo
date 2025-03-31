@@ -1,44 +1,45 @@
 module.exports = {
+  // Test configuration
+  testEnvironment: "jsdom",
+  testMatch: [
+    "**/__test__/**/*.js", // Matches test files in __test__ folders
+    "**/*.test.js", // Fallback for standard test files
+  ],
+  testPathIgnorePatterns: ["/node_modules/", "/public/"],
+  setupFilesAfterEnv: ["@testing-library/jest-dom/extend-expect"],
+
+  // Coverage configuration
   collectCoverage: true,
-  // testMatch: ["**/*.test.js"], // ✅ Only include test files
-  // collectCoverageFrom: [
-  //   "**/*.test.js", // ✅ Only collect coverage from test files
-  // ],
   collectCoverageFrom: [
-    "src/components/AddInput/**/*.js",
-    "src/components/Todo/**/*.js",
-    "src/components/Followers/**/*.js",
-    "src/components/FollowersList/**/*.js",
+    "src/components/**/*.js", // All component files
+    "!src/**/__test__/**/*.js", // Exclude test files from coverage calculation
+  ],
+  coveragePathIgnorePatterns: [
+    "/node_modules/",
+    "/public/",
+    "\\.(css|less|scss|sass)$",
   ],
   coverageThreshold: {
     global: {
-      statements: 0, // No global threshold (set to 0%)
+      statements: 0, // No global threshold
       branches: 0,
       functions: 0,
       lines: 0,
     },
-    // Per-file thresholds (applies only to test files)
-    "./**/*.test.js": {
+    // Only enforce coverage thresholds for test files
+    "./src/**/__test__/**/*.js": {
       statements: 90,
       branches: 90,
       functions: 90,
       lines: 90,
     },
   },
-  testMatch: [
-    "**/__test__/**/*.js?(x)", // Look for tests in __test__ folders
-  ],
   coverageDirectory: "coverage",
-  coverageReporters: ["json-summary", "text", "lcov"],
-  testPathIgnorePatterns: ["/node_modules/", "/public/"],
+  coverageReporters: ["json", "lcov", "text", "clover"],
+
+  // Module handling
   moduleNameMapper: {
     "\\.(css|less|scss|sass)$": "identity-obj-proxy",
   },
-  // jest.config.js
-
-  // testEnvironment: "jest-fixed-jsdom",
-  // testEnvironmentOptions: {
-  //   customExportConditions: [""],
-  // },
-  testEnvironment: "jsdom",
+  transformIgnorePatterns: ["node_modules/(?!axios)/"],
 };
