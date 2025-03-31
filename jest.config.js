@@ -1,6 +1,8 @@
 module.exports = {
   testEnvironment: "jsdom",
+  testMatch: ["<rootDir>/src/components/**/__tests__/**/*.test.js"], // Ensure Jest picks test files
   testPathIgnorePatterns: ["/node_modules/", "/public/"],
+
   setupFilesAfterEnv: ["@testing-library/jest-dom/extend-expect"],
 
   collectCoverage: true,
