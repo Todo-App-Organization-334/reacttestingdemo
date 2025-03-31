@@ -30,23 +30,19 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Debug - List Jest Test Files
-        run: npx jest --listTests
-
-      - name: Debug - Check Test Files
-        run: ls -R src/components | grep test.js || echo "No test files found"
-
-      - name: Clear Jest Cache
-        run: npx jest --clearCache
+      - name: Debug - Project Structure
+        run: |
+          echo "Project structure:"
+          find src -type d | sort
+          echo "Test files found:"
+          find src -name "*.test.js" | sort || echo "No test files found"
 
       - name: Run Tests with Coverage
-        run: npm test -- --coverage --coverageDirectory=coverage
-
-      - name: Debug - Check if Coverage Report Exists
-        run: ls -R coverage || echo "❌ Coverage report not found!"
-
-      - name: Debug - Print Coverage JSON
-        run: cat coverage/coverage-final.json || echo "❌ JSON file missing!"
+        run: |
+          npm test -- --coverage \
+            --collectCoverageFrom="src/components/**/*.js" \
+            --coverageDirectory=coverage \
+            --testPathPattern="src/components/.*/__tests__/.*.test.js"
 
       - name: Check Test File Coverage
         id: check_coverage
@@ -59,24 +55,25 @@ jobs:
             exit 1
           fi
 
-          # Find test files in __tests__ directories
+          # Verify test files exist in coverage report
           TEST_FILES=$(jq -r 'keys[] | select(contains("__tests__"))' "$COVERAGE_FILE")
 
           if [ -z "$TEST_FILES" ]; then
-            echo "❌ No test files found in __tests__ directories!"
-            echo "Files in coverage report:"
+            echo "❌ No test files found in coverage report!"
+            echo "Files in report:"
             jq -r 'keys[]' "$COVERAGE_FILE" | head -n 20
-            echo "Check that:"
-            echo "1. Test files are in __tests__ folders"
-            echo "2. Files are named *.test.js"
-            echo "3. Tests are actually running"
             exit 1
           fi
 
-          echo "Found test files:"
+          echo "Test files found in coverage report:"
           echo "$TEST_FILES"
 
-          FAILED_FILES=0
+          # Check coverage for components (should not fail build)
+          echo "Component coverage (informational only):"
+          jq -r 'to_entries[] | select(.key | contains("__tests__") | not) | "\(.key): \(.value.statements.pct)%"' "$COVERAGE_FILE"
+
+          # Check test file coverage (must meet threshold)
+          FAILED_TESTS=0
           while IFS= read -r file; do
             COVERAGE=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
             if [ "$COVERAGE" = "null" ]; then
@@ -86,18 +83,16 @@ jobs:
             
             if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
               echo "❌ $file has $COVERAGE% coverage (below $THRESHOLD%)"
-              FAILED_FILES=$((FAILED_FILES + 1))
+              FAILED_TESTS=$((FAILED_TESTS + 1))
             else
               echo "✅ $file meets coverage with $COVERAGE%"
             fi
           done <<< "$TEST_FILES"
 
-          if [ "$FAILED_FILES" -gt 0 ]; then
-            echo "❌ $FAILED_FILES test files below $THRESHOLD% coverage"
+          if [ "$FAILED_TESTS" -gt 0 ]; then
             echo "coverage_passed=false" >> $GITHUB_ENV
             exit 1
           else
-            echo "✅ All test files meet $THRESHOLD% coverage"
             echo "coverage_passed=true" >> $GITHUB_ENV
           fi
 

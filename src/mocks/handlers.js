@@ -2,7 +2,7 @@ import { rest } from "msw";
 
 export const handlers = [
   rest.get("https://randomuser.me/api/?results=5", (req, res, ctx) => {
-    const results = req.url.searchParams.get("results");
+    const results = req.url.searchParams.get("results") || "5"; // Default to 5
     return res(
       ctx.status(200),
       ctx.json({

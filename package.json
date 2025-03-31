@@ -19,8 +19,8 @@
   "scripts": {
    "start": "react-scripts --openssl-legacy-provider start",
    "build": "react-scripts --openssl-legacy-provider build",
-     "test": "jest --coverage",
-    "test:debug": "jest --listTests",
+   "test": "react-scripts test --coverage --collectCoverageFrom='src/components/**/*.js' --watchAll=false",
+  "test:debug": "react-scripts test --coverage --verbose",
     "coverage": "react-scripts test --coverage --watchAll=false",
     "eject": "react-scripts eject"
   },
