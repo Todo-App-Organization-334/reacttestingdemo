@@ -45,16 +45,17 @@ jobs:
             exit 1
           fi
 
-          # Find test files in __tests__ directories
-          TEST_FILES=$(jq -r 'keys[] | select(contains("__tests__"))' "$COVERAGE_FILE")
+          # Find test files ending with .test.js or .spec.js
+          TEST_FILES=$(jq -r 'keys[] | select(endswith(".test.js") or endswith(".spec.js"))' "$COVERAGE_FILE")
 
           if [ -z "$TEST_FILES" ]; then
-            echo "❌ No test files found in __tests__ directories!"
+            echo "❌ No test files found!"
+            echo "Files in coverage report:"
             jq -r 'keys[]' "$COVERAGE_FILE"
             exit 1
           fi
 
-          echo "Found test files:"
+          echo "✅ Found test files:"
           echo "$TEST_FILES"
 
           FAILED_FILES=0
