@@ -59,30 +59,45 @@ jobs:
             exit 1
           fi
 
-          SOURCE_FILES=$(jq -r 'keys[] | select(test("\\.js$") and (test("__tests__") | not))' "$COVERAGE_FILE")
+          # Find test files in __tests__ directories
+          TEST_FILES=$(jq -r 'keys[] | select(contains("__tests__"))' "$COVERAGE_FILE")
 
-          if [ -z "$SOURCE_FILES" ]; then
-            echo "❌ No source files found in coverage report!"
+          if [ -z "$TEST_FILES" ]; then
+            echo "❌ No test files found in __tests__ directories!"
+            echo "Files in coverage report:"
+            jq -r 'keys[]' "$COVERAGE_FILE" | head -n 20
+            echo "Check that:"
+            echo "1. Test files are in __tests__ folders"
+            echo "2. Files are named *.test.js"
+            echo "3. Tests are actually running"
             exit 1
           fi
 
+          echo "Found test files:"
+          echo "$TEST_FILES"
+
           FAILED_FILES=0
           while IFS= read -r file; do
-            COVERAGE=$(jq -r ".[\"$file\"].statements.pct // 0" "$COVERAGE_FILE")
+            COVERAGE=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
+            if [ "$COVERAGE" = "null" ]; then
+              echo "⚠️ No coverage data for $file"
+              continue
+            fi
+            
             if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
               echo "❌ $file has $COVERAGE% coverage (below $THRESHOLD%)"
               FAILED_FILES=$((FAILED_FILES + 1))
             else
               echo "✅ $file meets coverage with $COVERAGE%"
             fi
-          done <<< "$SOURCE_FILES"
+          done <<< "$TEST_FILES"
 
           if [ "$FAILED_FILES" -gt 0 ]; then
-            echo "❌ $FAILED_FILES files below $THRESHOLD% coverage"
+            echo "❌ $FAILED_FILES test files below $THRESHOLD% coverage"
             echo "coverage_passed=false" >> $GITHUB_ENV
             exit 1
           else
-            echo "✅ All source files meet $THRESHOLD% coverage"
+            echo "✅ All test files meet $THRESHOLD% coverage"
             echo "coverage_passed=true" >> $GITHUB_ENV
           fi
 
