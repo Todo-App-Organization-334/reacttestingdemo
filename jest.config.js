@@ -25,6 +25,9 @@ module.exports = {
       lines: 90,
     },
   },
+  testMatch: [
+    "**/__test__/**/*.js?(x)", // Look for tests in __test__ folders
+  ],
   coverageDirectory: "coverage",
   coverageReporters: ["json-summary", "text", "lcov"],
   testPathIgnorePatterns: ["/node_modules/", "/public/"],

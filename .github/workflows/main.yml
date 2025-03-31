@@ -42,26 +42,14 @@ jobs:
             exit 1
           fi
 
-          # Debug: Show first 100 lines of coverage file
-          echo "First 100 lines of coverage file:"
-          head -n 100 "$COVERAGE_FILE"
-
-          # Try multiple patterns to find test files
-          TEST_FILES=$(jq -r 'keys[] | select(test("(\\.test\\.js|\\.spec\\.js|Test\\.js)$"))' "$COVERAGE_FILE" || true)
+          # Find test files in __test__ directories
+          TEST_FILES=$(jq -r 'keys[] | select(contains("__test__"))' "$COVERAGE_FILE")
 
           if [ -z "$TEST_FILES" ]; then
-            echo "⚠️ No test files found using standard patterns. Checking all files..."
-            # If no test files found, check all files to verify coverage exists
-            ALL_FILES=$(jq -r 'keys[]' "$COVERAGE_FILE")
-            if [ -z "$ALL_FILES" ]; then
-              echo "❌ No files found in coverage report at all!"
-              exit 1
-            else
-              echo "ℹ️ Found these files in coverage report:"
-              echo "$ALL_FILES"
-              echo "❌ No test files found matching expected patterns (*.test.js, *.spec.js, *Test.js)"
-              exit 1
-            fi
+            echo "❌ No test files found in __test__ directories!"
+            echo "Files in coverage report:"
+            jq -r 'keys[]' "$COVERAGE_FILE"
+            exit 1
           fi
 
           echo "Found test files:"
