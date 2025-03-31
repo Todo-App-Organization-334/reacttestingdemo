@@ -1,9 +1,14 @@
 module.exports = {
   // Test configuration
   testEnvironment: "jsdom",
+  // testMatch: [
+  //   "**/__test__/**/*.js", // Matches test files in __test__ folders
+  //   "**/*.test.js", // Fallback for standard test files
+  // ],
   testMatch: [
-    "**/__test__/**/*.js", // Matches test files in __test__ folders
-    "**/*.test.js", // Fallback for standard test files
+    "**/__tests__/**/*.[jt]s?(x)",
+    "**/__test__/**/*.[jt]s?(x)",
+    "**/?(*.)+(spec|test).[jt]s?(x)",
   ],
   testPathIgnorePatterns: ["/node_modules/", "/public/"],
   setupFilesAfterEnv: ["@testing-library/jest-dom/extend-expect"],
