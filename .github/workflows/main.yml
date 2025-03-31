@@ -45,12 +45,11 @@ jobs:
             exit 1
           fi
 
-          # Find test files in __test__ directories
-          TEST_FILES=$(jq -r 'keys[] | select(contains("__test__"))' "$COVERAGE_FILE")
+          # Find test files in __tests__ directories
+          TEST_FILES=$(jq -r 'keys[] | select(contains("__tests__"))' "$COVERAGE_FILE")
 
           if [ -z "$TEST_FILES" ]; then
-            echo "❌ No test files found in __test__ directories!"
-            echo "Files in coverage report:"
+            echo "❌ No test files found in __tests__ directories!"
             jq -r 'keys[]' "$COVERAGE_FILE"
             exit 1
           fi
@@ -60,12 +59,7 @@ jobs:
 
           FAILED_FILES=0
           while IFS= read -r file; do
-            COVERAGE=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
-            if [ "$COVERAGE" = "null" ]; then
-              echo "⚠️ No coverage data for $file"
-              continue
-            fi
-            
+            COVERAGE=$(jq -r ".[\"$file\"].statements.pct // 0" "$COVERAGE_FILE")
             if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
               echo "❌ $file has $COVERAGE% coverage (below $THRESHOLD%)"
               FAILED_FILES=$((FAILED_FILES + 1))
@@ -85,7 +79,7 @@ jobs:
 
       - name: Set Output Variable
         id: set_output
-        run: echo "coverage_passed=${{ env.coverage_passed }}" >> $GITHUB_OUTPUT
+        run: echo "coverage_passed=${{ env.coverage_passed }}"
 
   deploy:
     needs: test
@@ -114,4 +108,4 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy to AWS S3
-        run: aws s3 sync build s3://demotestbucket334 --delete
+        run: aws s3 sync build s3://demotestbucket334 --delete --exact-timestamps

@@ -1,37 +1,22 @@
-const glob = require("glob");
-const fs = require("fs");
-
-// Get all test files in __tests__ directories
-const testFiles = glob.sync("src/components/**/__tests__/*.test.js");
-
-// Extract corresponding source files (without __tests__ and .test.js)
-const sourceFiles = testFiles
-  .map((testFile) => {
-    const componentPath = testFile
-      .replace("/__tests__/", "/") // Remove __tests__ folder
-      .replace(".test.js", ".js"); // Convert test filename to source filename
-    return fs.existsSync(componentPath) ? componentPath : null;
-  })
-  .filter(Boolean);
-
 module.exports = {
-  // Test configuration
   testEnvironment: "jsdom",
   testMatch: [
-    "**/__tests__/**/*.?(test|spec).[jt]s?(x)",
-    "**/?(*.)+(test|spec).[jt]s?(x)",
+    "**/__tests__/**/*.test.[jt]s?(x)", // Match test files inside __tests__
+    "**/?(*.)+(test|spec).[jt]s?(x)", // Standard test file detection
   ],
   testPathIgnorePatterns: ["/node_modules/", "/public/"],
-  setupFilesAfterEnv: ["@testing-library/jest-dom/extend-expect"],
 
-  // Coverage configuration
+  // Enable coverage but only for files that have tests
   collectCoverage: true,
-  collectCoverageFrom: sourceFiles, // Only include tested files
-  coveragePathIgnorePatterns: [
-    "/node_modules/",
-    "/public/",
-    "\\.(css|less|scss|sass)$",
+  collectCoverageFrom: [
+    "src/components/**/*.js", // Include component files
+    "!src/**/*.test.js", // Exclude test files
+    "!src/**/__tests__/**/*.js", // Exclude __tests__ folder explicitly
+    "!src/index.js", // Exclude main entry files
+    "!src/reportWebVitals.js", // Exclude boilerplate files
   ],
+
+  // Ensure 90%+ coverage only for components that have tests
   coverageThreshold: {
     global: {
       statements: 90,
@@ -40,6 +25,7 @@ module.exports = {
       lines: 90,
     },
   },
+
   coverageDirectory: "coverage",
   coverageReporters: ["json", "lcov", "text", "clover"],
 
@@ -47,5 +33,6 @@ module.exports = {
   moduleNameMapper: {
     "\\.(css|less|scss|sass)$": "identity-obj-proxy",
   },
+
   transformIgnorePatterns: ["node_modules/(?!axios)/"],
 };
