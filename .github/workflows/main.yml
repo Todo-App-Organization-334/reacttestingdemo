@@ -83,16 +83,16 @@ jobs:
 
           if [ "$FAILED_FILES" -gt 0 ]; then
             echo "❌ $FAILED_FILES components below $THRESHOLD% coverage"
-            echo "coverage_passed=false" >> $GITHUB_ENV
+            echo "coverage_passed=false" >> $GITHUB_OUTPUT
             exit 1
           else
             echo "✅ All components meet $THRESHOLD% coverage"
-            echo "coverage_passed=true" >> $GITHUB_ENV
+            echo "coverage_passed=true" >> $GITHUB_OUTPUT
           fi
 
   deploy:
     needs: test
-    if: needs.test.outputs.coverage_passed == 'true'
+    if: ${{ needs.test.outputs.coverage_passed == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
