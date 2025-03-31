@@ -35,10 +35,33 @@ jobs:
         id: check_coverage
         run: |
           THRESHOLD=90
-          COVERAGE_FILE="coverage/coverage-final.json"  # Changed from coverage-summary.json
+          COVERAGE_FILE="coverage/coverage-final.json"
 
           if [ ! -f "$COVERAGE_FILE" ]; then
             echo "❌ Coverage report not found! Looked for: $COVERAGE_FILE"
+            exit 1
+          fi
+
+          # Debug: Show the structure of the coverage file
+          echo "Coverage file content:"
+          cat "$COVERAGE_FILE" | jq .
+
+          # Try different paths to find the coverage percentage
+          COVERAGE_PERCENT=$(jq -r '.total.statements.pct // .statementMap.total.pct // .summary.total.statements.pct' "$COVERAGE_FILE")
+
+          echo "Extracted coverage percentage: $COVERAGE_PERCENT%"
+
+          if [ "$COVERAGE_PERCENT" = "null" ]; then
+            echo "❌ Could not determine coverage percentage from file structure"
+            exit 1
+          fi
+
+          if awk "BEGIN {exit !($COVERAGE_PERCENT >= $THRESHOLD)}"; then
+            echo "✅ Coverage meets the required threshold!"
+            echo "coverage_passed=true" >> $GITHUB_ENV
+          else
+            echo "❌ Coverage is below threshold ($THRESHOLD%)!"
+            echo "coverage_passed=false" >> $GITHUB_ENV
             exit 1
           fi
 
