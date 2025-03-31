@@ -1,10 +1,22 @@
+const glob = require("glob");
+const fs = require("fs");
+
+// Get all test files in __tests__ directories
+const testFiles = glob.sync("src/components/**/__tests__/*.test.js");
+
+// Extract corresponding source files (without __tests__ and .test.js)
+const sourceFiles = testFiles
+  .map((testFile) => {
+    const componentPath = testFile
+      .replace("/__tests__/", "/") // Remove __tests__ folder
+      .replace(".test.js", ".js"); // Convert test filename to source filename
+    return fs.existsSync(componentPath) ? componentPath : null;
+  })
+  .filter(Boolean);
+
 module.exports = {
   // Test configuration
   testEnvironment: "jsdom",
-  // testMatch: [
-  //   "**/__test__/**/*.js", // Matches test files in __test__ folders
-  //   "**/*.test.js", // Fallback for standard test files
-  // ],
   testMatch: [
     "**/__tests__/**/*.?(test|spec).[jt]s?(x)",
     "**/?(*.)+(test|spec).[jt]s?(x)",
@@ -14,10 +26,7 @@ module.exports = {
 
   // Coverage configuration
   collectCoverage: true,
-  collectCoverageFrom: [
-    "src/components/**/*.js", // All component files
-    "!src/**/__test__/**/*.js", // Exclude test files from coverage calculation
-  ],
+  collectCoverageFrom: sourceFiles, // Only include tested files
   coveragePathIgnorePatterns: [
     "/node_modules/",
     "/public/",
@@ -25,13 +34,6 @@ module.exports = {
   ],
   coverageThreshold: {
     global: {
-      statements: 0, // No global threshold
-      branches: 0,
-      functions: 0,
-      lines: 0,
-    },
-    // Only enforce coverage thresholds for test files
-    "./src/**/__test__/**/*.js": {
       statements: 90,
       branches: 90,
       functions: 90,
