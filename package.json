@@ -20,7 +20,8 @@
    "start": "react-scripts --openssl-legacy-provider start",
    "build": "react-scripts --openssl-legacy-provider build",
    
-    "test": "react-scripts test --coverage --watchAll=false",
+     "test": "jest --ci --testPathPattern=src/components/**/__tests__/*.test.js --coverage",
+    "test:debug": "ls -R src/components/**/__tests__/ && jest --listTests",
     "coverage": "react-scripts test --coverage --watchAll=false",
     "eject": "react-scripts eject"
   },
