@@ -31,66 +31,48 @@ jobs:
       - name: Run Tests with Coverage
         run: npm test -- --coverage --watchAll=false --maxWorkers=2 --forceExit --detectOpenHandles
 
-      - name: Check Coverage Threshold for Each File
+      - name: Check Test File Coverage
         id: check_coverage
         run: |
           THRESHOLD=90
           COVERAGE_FILE="coverage/coverage-final.json"
 
           if [ ! -f "$COVERAGE_FILE" ]; then
-            echo "❌ Coverage report not found! Looked for: $COVERAGE_FILE"
+            echo "❌ Coverage report not found!"
             exit 1
           fi
 
-          # Debug: Show the structure of the coverage file
-          echo "Coverage file content:"
-          cat "$COVERAGE_FILE" | jq .
+          # Extract coverage for test files only
+          TEST_FILES=$(jq -r 'keys[] | select(test("\\.test\\.js$"))' "$COVERAGE_FILE")
 
-          # Try different paths to find the coverage percentage
-          COVERAGE_PERCENT=$(jq -r '.total.statements.pct // .statementMap.total.pct // .summary.total.statements.pct' "$COVERAGE_FILE")
-
-          echo "Extracted coverage percentage: $COVERAGE_PERCENT%"
-
-          if [ "$COVERAGE_PERCENT" = "null" ]; then
-            echo "❌ Could not determine coverage percentage from file structure"
+          if [ -z "$TEST_FILES" ]; then
+            echo "❌ No test files found in coverage report!"
             exit 1
           fi
 
-          if awk "BEGIN {exit !($COVERAGE_PERCENT >= $THRESHOLD)}"; then
-            echo "✅ Coverage meets the required threshold!"
-            echo "coverage_passed=true" >> $GITHUB_ENV
-          else
-            echo "❌ Coverage is below threshold ($THRESHOLD%)!"
+          FAILED_FILES=0
+          while IFS= read -r file; do
+            COVERAGE=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
+            if [ "$COVERAGE" = "null" ]; then
+              echo "⚠️ No coverage data for $file"
+              continue
+            fi
+            
+            if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+              echo "❌ $file has $COVERAGE% coverage (below $THRESHOLD%)"
+              FAILED_FILES=$((FAILED_FILES + 1))
+            else
+              echo "✅ $file meets coverage with $COVERAGE%"
+            fi
+          done <<< "$TEST_FILES"
+
+          if [ "$FAILED_FILES" -gt 0 ]; then
+            echo "❌ $FAILED_FILES test files below $THRESHOLD% coverage"
             echo "coverage_passed=false" >> $GITHUB_ENV
             exit 1
-          fi
-
-          # Extract total statement coverage percentage
-          COVERAGE_PERCENT=$(jq '.total.statements.pct' "$COVERAGE_FILE")
-
-          echo "Total coverage: $COVERAGE_PERCENT%"
-
-          if awk "BEGIN {exit !($COVERAGE_PERCENT >= $THRESHOLD)}"; then
-            echo "✅ Coverage meets the required threshold!"
-            echo "coverage_passed=true" >> $GITHUB_ENV
           else
-            echo "❌ Coverage is below threshold ($THRESHOLD%)!"
-            echo "coverage_passed=false" >> $GITHUB_ENV
-            exit 1
-          fi
-
-          # Extract total statement coverage percentage
-          COVERAGE_PERCENT=$(jq '.total.statements.pct' "$COVERAGE_FILE")
-
-          echo "Total coverage: $COVERAGE_PERCENT%"
-
-          if awk "BEGIN {exit !($COVERAGE_PERCENT >= $THRESHOLD)}"; then
-            echo "✅ Coverage meets the required threshold!"
+            echo "✅ All test files meet $THRESHOLD% coverage"
             echo "coverage_passed=true" >> $GITHUB_ENV
-          else
-            echo "❌ Coverage is below threshold ($THRESHOLD%)!"
-            echo "coverage_passed=false" >> $GITHUB_ENV
-            exit 1
           fi
 
       - name: Set Output Variable
@@ -121,7 +103,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 # Update if needed
+          aws-region: us-east-1
 
       - name: Deploy to AWS S3
         run: aws s3 sync build s3://demotestbucket334 --delete

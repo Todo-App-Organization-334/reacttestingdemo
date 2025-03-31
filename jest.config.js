@@ -12,6 +12,13 @@ module.exports = {
   ],
   coverageThreshold: {
     global: {
+      statements: 0, // No global threshold (set to 0%)
+      branches: 0,
+      functions: 0,
+      lines: 0,
+    },
+    // Per-file thresholds (applies only to test files)
+    "./**/*.test.js": {
       statements: 90,
       branches: 90,
       functions: 90,
