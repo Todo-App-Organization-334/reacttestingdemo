@@ -1,9 +1,25 @@
 {
   "name": "rtl",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
+  "scripts": {
+    "start": "react-scripts --openssl-legacy-provider start",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext js,jsx --fix",
+    "format": "prettier --write 'src/**/*.{js,jsx,css,html}'",
+    "prepare": "husky install",
+    "postinstall": "husky install",
+    "build": "DISABLE_ESLINT_PLUGIN=true react-scripts --openssl-legacy-provider build",
+    "test": "jest --coverage",
+    "test:debug": "jest --listTests",
+    "coverage": "react-scripts test --coverage --watchAll=false",
+    "eject": "react-scripts eject"
+  },
   "dependencies": {
-    "axios": "0.27.2",  
+    "@testing-library/react": "^12.1.2",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "0.27.2",
     "bootstrap": "^5.0.1",
     "msw": "^1.2.1",
     "react": "^17.0.2",
@@ -12,17 +28,34 @@
     "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.3",
     "uuid": "^8.3.2",
-    "web-vitals": "^1.0.1",
-    "@testing-library/react": "^12.1.2", 
-    "@testing-library/user-event": "^13.5.0"
+    "web-vitals": "^1.0.1"
   },
-  "scripts": {
-   "start": "react-scripts --openssl-legacy-provider start",
-  "build": "DISABLE_ESLINT_PLUGIN=true react-scripts --openssl-legacy-provider build",
-     "test": "jest --coverage",
-    "test:debug": "jest --listTests",
-    "coverage": "react-scripts test --coverage --watchAll=false",
-    "eject": "react-scripts eject"
+  "devDependencies": {
+    "@babel/eslint-parser": "^7.27.0",
+    "@babel/preset-react": "^7.26.3",
+    "@testing-library/jest-dom": "^5.16.5",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-config-react-app": "^7.0.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "husky": "^9.1.7",
+    "identity-obj-proxy": "^3.0.0",
+    "lint-staged": "^15.5.0",
+    "prettier": "^3.5.3"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "pre-push": "npm run lint && npm run format"
+    }
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx,js,jsx}": [
+      "npm run lint",
+      "npm run format"
+    ]
   },
   "eslintConfig": {
     "extends": [
@@ -42,13 +75,9 @@
       "last 1 safari version"
     ]
   },
-  "devDependencies": {
-    "@testing-library/jest-dom": "^5.16.5",
-    "identity-obj-proxy": "^3.0.0"
-  },
   "jest": {
     "transformIgnorePatterns": [
-      "node_modules/(?!axios)/"  
+      "node_modules/(?!axios)/"
     ]
   }
 }

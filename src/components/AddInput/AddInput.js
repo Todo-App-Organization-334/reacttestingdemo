@@ -1,10 +1,9 @@
-import React, { useState } from "react";
-import "./AddInput.css";
-import { v4 } from "uuid";
-import TodoList from "../TodoList/TodoList";
+import React, { useState } from 'react';
+import './AddInput.css';
+import { v4 } from 'uuid';
 
 function AddInput({ setTodos, todos }) {
-  const [todo, setTodo] = useState("");
+  const [todo, setTodo] = useState('');
 
   const addTodo = () => {
     if (todo.length > 0) {
@@ -17,7 +16,7 @@ function AddInput({ setTodos, todos }) {
         },
       ];
       setTodos(updatedTodos);
-      setTodo("");
+      setTodo('');
     }
   };
 

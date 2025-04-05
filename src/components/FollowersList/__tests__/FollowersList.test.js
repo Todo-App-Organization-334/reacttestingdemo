@@ -1,12 +1,12 @@
-import "@testing-library/jest-dom";
-import React from "react";
-import { render, screen, act, waitFor } from "@testing-library/react";
-import FollowersList from "../FollowersList";
-import { BrowserRouter } from "react-router-dom";
-import { rest } from "msw";
+import '@testing-library/jest-dom';
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import FollowersList from '../FollowersList';
+import { BrowserRouter } from 'react-router-dom';
+
 // import server from "../../../mocks/server";
-import { setupServer } from "msw/node";
-import { handlers } from "../../../mocks/handlers";
+import { setupServer } from 'msw/node';
+import { handlers } from '../../../mocks/handlers';
 
 const server = setupServer(...handlers);
 beforeAll(() => server.listen());
@@ -19,21 +19,21 @@ const MockFollowersList = () => (
   </BrowserRouter>
 );
 
-describe("Followers List Component", () => {
-  it("should fetch and display a list of followers from an API", async () => {
+describe('Followers List Component', () => {
+  it('should fetch and display a list of followers from an API', async () => {
     render(<MockFollowersList />);
-    const elements = await screen.findAllByTestId("follower-name");
+    const elements = await screen.findAllByTestId('follower-name');
     expect(elements).toHaveLength(2);
-    expect(elements[0]).toHaveTextContent("John Doe");
-    expect(elements[1]).toHaveTextContent("Jane Smith");
+    expect(elements[0]).toHaveTextContent('John Doe');
+    expect(elements[1]).toHaveTextContent('Jane Smith');
   });
 
-  it("should show a loading indicator before followers load", async () => {
+  it('should show a loading indicator before followers load', async () => {
     render(<MockFollowersList />);
 
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
     await waitFor(() => {
-      const loadingText = screen.queryByText("Loading...");
+      const loadingText = screen.queryByText('Loading...');
       expect(loadingText).not.toBeInTheDocument();
     });
   });
