@@ -1,9 +1,9 @@
-import React from "react";
-import TodoFooter from "../TodoFooter/TodoFooter";
-import "./TodoList.css";
+import React from 'react';
+import TodoFooter from '../TodoFooter/TodoFooter';
+import './TodoList.css';
 
 function TodoList({ todos, setTodos }) {
-  console.log("todo is", todos);
+  console.log('todo is', todos);
   const updateTask = (id) => {
     let updatedTasks = todos.map((todo) => {
       if (todo.id === id) {
@@ -31,7 +31,7 @@ function TodoList({ todos, setTodos }) {
           {todos.map((todo, index) => (
             <div
               className={`todo-item ${
-                todo.completed ? "todo-item-active" : ""
+                todo.completed ? 'todo-item-active' : ''
               }`}
               key={index}
               onClick={() => updateTask(todo.id)}
