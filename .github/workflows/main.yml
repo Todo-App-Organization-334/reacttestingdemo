@@ -122,7 +122,7 @@ jobs:
           fi
 
       - name: Upload Error Report (if exists)
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: error-report
