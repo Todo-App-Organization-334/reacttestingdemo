@@ -60,7 +60,10 @@ jobs:
 
       - name: Run Tests with Coverage
         run: |
-          npm test -- --coverage --collectCoverageFrom='src/components/**/*.js' || exit 1
+          npm test -- --coverage --collectCoverageFrom='src/components/**/*.js' || (
+            echo "❌ Test coverage failed via Jest threshold" > error_reason.txt
+            exit 1
+          )
 
       - name: Check Component Coverage
         id: check_coverage
@@ -201,9 +204,9 @@ jobs:
 
             📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-    # -------------------------------
-    # 4. NOTIFY ON FAILURE
-    # -------------------------------
+  # -------------------------------
+  # 4. NOTIFY ON FAILURE
+  # -------------------------------
   notify-failure:
     needs: test
     if: ${{ failure() && needs.test.result == 'failure' }}
@@ -216,11 +219,14 @@ jobs:
           name: error-report
           path: ./report
 
-      - name: Read error_reason.txt
+      - name: Read error_reason.txt into multiline output
         id: read_reason
         run: |
-          REASON=$(cat ./report/error_reason.txt | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed ':a;N;$!ba;s/\n/<br>/g')
-          echo "escaped_reason=$REASON" >> $GITHUB_OUTPUT
+          {
+            echo "body<<EOF"
+            cat ./report/error_reason.txt
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Send Failure Email
         uses: dawidd6/action-send-mail@v3
@@ -232,19 +238,14 @@ jobs:
           subject: '❌ CI Failure - ${{ github.repository }}'
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
-          html: true
           body: |
-            <h2 style="color:red;">CI Pipeline Failed ❌</h2>
+            CI pipeline failed ❌
 
-            <p><strong>Branch:</strong> ${{ github.ref_name }}<br>
-            <strong>Commit:</strong> ${{ github.sha }}<br>
-            <strong>Triggered by:</strong> ${{ github.actor }}</p>
+            🔍 **Reason:**
+            ${{ steps.read_reason.outputs.body }}
 
-            <h3>📊 Component Test Coverage Report</h3>
-            <div style="font-family: monospace; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
-              ${{ steps.read_reason.outputs.escaped_reason }}
-            </div>
+            📄 **Branch:** ${{ github.ref_name }}
+            🔁 **Commit:** ${{ github.sha }}
+            👤 **Triggered by:** ${{ github.actor }}
 
-            <p>
-              🔗 <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Full Workflow Logs</a>
-            </p>
+            📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
