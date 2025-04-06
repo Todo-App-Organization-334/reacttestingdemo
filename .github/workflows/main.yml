@@ -204,9 +204,9 @@ jobs:
 
             📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-  # -------------------------------
-  # 4. NOTIFY ON FAILURE
-  # -------------------------------
+    # -------------------------------
+    # 4. NOTIFY ON FAILURE
+    # -------------------------------
   notify-failure:
     needs: test
     if: ${{ failure() && needs.test.result == 'failure' }}
@@ -222,10 +222,8 @@ jobs:
       - name: Read error_reason.txt
         id: read_reason
         run: |
-          # Read the error reason file and escape special characters for JSON
-          REASON=$(cat ./report/error_reason.txt | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-          echo "{\"reason\":\"$REASON\"}" > reason.json
-          echo "reason_json=$(cat reason.json)" >> $GITHUB_OUTPUT
+          REASON=$(cat ./report/error_reason.txt | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed ':a;N;$!ba;s/\n/<br>/g')
+          echo "escaped_reason=$REASON" >> $GITHUB_OUTPUT
 
       - name: Send Failure Email
         uses: dawidd6/action-send-mail@v3
@@ -239,13 +237,17 @@ jobs:
           from: ${{ secrets.EMAIL_FROM }}
           html: true
           body: |
-            <h2>CI pipeline failed ❌</h2>
+            <h2 style="color:red;">CI Pipeline Failed ❌</h2>
 
             <p><strong>Branch:</strong> ${{ github.ref_name }}<br>
             <strong>Commit:</strong> ${{ github.sha }}<br>
             <strong>Triggered by:</strong> ${{ github.actor }}</p>
 
-            <h3>Detailed Coverage Report:</h3>
-            <pre style="background: #f4f4f4; padding: 10px; border-radius: 5px; white-space: pre-wrap;">${{ fromJson(steps.read_reason.outputs.reason_json).reason }}</pre>
+            <h3>📊 Component Test Coverage Report</h3>
+            <div style="font-family: monospace; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+              ${{ steps.read_reason.outputs.escaped_reason }}
+            </div>
 
-            <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Logs</a></p>
+            <p>
+              🔗 <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Full Workflow Logs</a>
+            </p>
