@@ -60,10 +60,7 @@ jobs:
 
       - name: Run Tests with Coverage
         run: |
-          npm test -- --coverage --collectCoverageFrom='src/components/**/*.js' || (
-            echo "❌ Test coverage failed via Jest threshold" > error_reason.txt
-            exit 1
-          )
+          npm test -- --coverage --collectCoverageFrom='src/components/**/*.js' || exit 1
 
       - name: Check Component Coverage
         id: check_coverage
