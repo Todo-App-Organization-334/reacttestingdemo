@@ -62,8 +62,6 @@ jobs:
         run: |
           npm test -- --coverage --collectCoverageFrom='src/components/**/*.js' || (
             echo "❌ Test coverage failed via Jest threshold" > error_reason.txt
-            echo "Jest output:" >> error_reason.txt
-            cat coverage/lcov-report/index.html | grep -E 'class="(low|medium)"' >> error_reason.txt 2>/dev/null || true
             exit 1
           )
 
