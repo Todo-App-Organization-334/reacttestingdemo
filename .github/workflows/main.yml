@@ -6,6 +6,9 @@ on:
       - main
 
 jobs:
+  # -------------------------------
+  # 1. TEST JOB: Lint, Format, Coverage
+  # -------------------------------
   test:
     runs-on: ubuntu-latest
     outputs:
@@ -128,6 +131,9 @@ jobs:
           name: error-report
           path: error_reason.txt
 
+  # -------------------------------
+  # 2. DEPLOY JOB: Only if test passes
+  # -------------------------------
   deploy:
     needs: test
     if: ${{ needs.test.outputs.coverage_passed == 'true' }}
@@ -170,6 +176,9 @@ jobs:
       - name: Debug - List S3 Bucket Contents
         run: aws s3 ls s3://${{ secrets.AWS_S3_BUCKET_NAME }} --recursive
 
+  # -------------------------------
+  # 3. NOTIFY ON SUCCESS
+  # -------------------------------
   notify-success:
     needs: deploy
     if: ${{ success() }}
@@ -193,8 +202,11 @@ jobs:
             ✅ Commit: ${{ github.sha }}
             ✅ Triggered by: ${{ github.actor }}
 
-            View the workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
+  # -------------------------------
+  # 4. NOTIFY ON FAILURE
+  # -------------------------------
   notify-failure:
     needs: test
     if: ${{ failure() && needs.test.result == 'failure' }}
