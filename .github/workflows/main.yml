@@ -60,16 +60,18 @@ jobs:
 
       - name: Run Tests with Coverage
         run: |
-          npm test -- --coverage --collectCoverageFrom='src/components/**/*.js' || true
+          if ! npm test -- --coverage --collectCoverageFrom='src/components/**/*.js'; then
+            echo "⚠️ Jest test command failed. Proceeding to check coverage details..." >> error_reason.txt
+          fi
 
       - name: Check Component Coverage
-        if: always()
         id: check_coverage
         run: |
           THRESHOLD=90
           COVERAGE_FILE="coverage/coverage-final.json"
           REPORT_FILE="error_reason.txt"
 
+          # Initialize error report
           echo "📊 Detailed Component Coverage Report" > $REPORT_FILE
           echo "Expected threshold: ${THRESHOLD}%" >> $REPORT_FILE
           echo "===================================" >> $REPORT_FILE
@@ -92,6 +94,7 @@ jobs:
           PASSED_FILES=0
 
           while IFS= read -r file; do
+            # Extract coverage data
             STATEMENTS=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
             BRANCHES=$(jq -r ".[\"$file\"].branches.pct" "$COVERAGE_FILE")
             LINES=$(jq -r ".[\"$file\"].lines.pct" "$COVERAGE_FILE")
@@ -102,10 +105,11 @@ jobs:
               continue
             fi
 
+            # Check against threshold
             if (( $(echo "$STATEMENTS < $THRESHOLD" | bc -l) || \
-                  $(echo "$BRANCHES < $THRESHOLD" | bc -l) || \
-                  $(echo "$LINES < $THRESHOLD" | bc -l) || \
-                  $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
+                $(echo "$BRANCHES < $THRESHOLD" | bc -l) || \
+                $(echo "$LINES < $THRESHOLD" | bc -l) || \
+                $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
               echo "❌ $file failed:" >> $REPORT_FILE
               echo "   - Statements: $STATEMENTS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
               echo "   - Branches:   $BRANCHES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
@@ -120,6 +124,7 @@ jobs:
             echo "-----------------------------------" >> $REPORT_FILE
           done <<< "$COMPONENT_FILES"
 
+          # Summary
           echo "📊 Coverage Summary:" >> $REPORT_FILE
           echo "   - Total components checked: $((FAILED_FILES + PASSED_FILES))" >> $REPORT_FILE
           echo "   - Passed: $PASSED_FILES" >> $REPORT_FILE
@@ -266,5 +271,6 @@ jobs:
 
             <h3>Detailed Coverage Report:</h3>
             <pre>${{ steps.read_reason.outputs.body }}</pre>
+
 
             <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Logs</a></p>
