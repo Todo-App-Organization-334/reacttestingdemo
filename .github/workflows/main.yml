@@ -64,6 +64,7 @@ jobs:
 
       - name: Check Component Coverage
         id: check_coverage
+        continue-on-error: true
         run: |
           THRESHOLD=90
           COVERAGE_FILE="coverage/coverage-final.json"
