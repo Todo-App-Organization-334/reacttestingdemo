@@ -208,9 +208,9 @@ jobs:
       - name: Read error reason
         id: read_reason
         run: |
-          REASON=$(cat ./report/error_reason.txt || echo "Unknown reason")
+          echo "Reading full multiline error report..."
           echo "reason<<EOF" >> $GITHUB_OUTPUT
-          echo "$REASON" >> $GITHUB_OUTPUT
+          cat ./report/error_reason.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Send Failure Email
