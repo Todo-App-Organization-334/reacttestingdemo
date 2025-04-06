@@ -62,64 +62,64 @@ jobs:
             exit 1
           )
 
-          - name: Check Component Coverage
-          id: check_coverage
-          run: |
-            THRESHOLD=90
-            COVERAGE_FILE="coverage/coverage-final.json"
+      - name: Check Component Coverage
+        id: check_coverage
+        run: |
+          THRESHOLD=90
+          COVERAGE_FILE="coverage/coverage-final.json"
 
-            if [ ! -f "$COVERAGE_FILE" ]; then
-              echo "❌ Coverage report not found!" > error_reason.txt
-              exit 1
+          if [ ! -f "$COVERAGE_FILE" ]; then
+            echo "❌ Coverage report not found!" > error_reason.txt
+            exit 1
+          fi
+
+          COMPONENT_FILES=$(jq -r 'keys[] | select(contains("__tests__") | not)' "$COVERAGE_FILE")
+
+          if [ -z "$COMPONENT_FILES" ]; then
+            echo "❌ No component files found in coverage report!" > error_reason.txt
+            exit 1
+          fi
+
+          FAILED_FILES=0
+          echo "📊 Component Coverage Report:" > error_reason.txt
+          echo "Expected threshold: ${THRESHOLD}%" >> error_reason.txt
+          echo "-------------------------------" >> error_reason.txt
+
+          while IFS= read -r file; do
+            STATEMENTS=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
+            BRANCHES=$(jq -r ".[\"$file\"].branches.pct" "$COVERAGE_FILE")
+            LINES=$(jq -r ".[\"$file\"].lines.pct" "$COVERAGE_FILE")
+            FUNCTIONS=$(jq -r ".[\"$file\"].functions.pct" "$COVERAGE_FILE")
+
+            if [ "$STATEMENTS" = "null" ]; then
+              echo "⚠️ No coverage data for $file" >> error_reason.txt
+              continue
             fi
 
-            COMPONENT_FILES=$(jq -r 'keys[] | select(contains("__tests__") | not)' "$COVERAGE_FILE")
-
-            if [ -z "$COMPONENT_FILES" ]; then
-              echo "❌ No component files found in coverage report!" > error_reason.txt
-              exit 1
-            fi
-
-            FAILED_FILES=0
-            echo "📊 Component Coverage Report:" > error_reason.txt
-            echo "Expected threshold: ${THRESHOLD}%" >> error_reason.txt
-            echo "-------------------------------" >> error_reason.txt
-
-            while IFS= read -r file; do
-              STATEMENTS=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
-              BRANCHES=$(jq -r ".[\"$file\"].branches.pct" "$COVERAGE_FILE")
-              LINES=$(jq -r ".[\"$file\"].lines.pct" "$COVERAGE_FILE")
-              FUNCTIONS=$(jq -r ".[\"$file\"].functions.pct" "$COVERAGE_FILE")
-
-              if [ "$STATEMENTS" = "null" ]; then
-                echo "⚠️ No coverage data for $file" >> error_reason.txt
-                continue
-              fi
-
-              if (( $(echo "$STATEMENTS < $THRESHOLD" | bc -l) || \
-                    $(echo "$BRANCHES < $THRESHOLD" | bc -l) || \
-                    $(echo "$LINES < $THRESHOLD" | bc -l) || \
-                    $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
-                echo "❌ $file failed:" >> error_reason.txt
-                echo "   - Statements: $STATEMENTS%" >> error_reason.txt
-                echo "   - Branches:   $BRANCHES%" >> error_reason.txt
-                echo "   - Lines:      $LINES%" >> error_reason.txt
-                echo "   - Functions:  $FUNCTIONS%" >> error_reason.txt
-                FAILED_FILES=$((FAILED_FILES + 1))
-              else
-                echo "✅ $file passed with $STATEMENTS% statements" >> error_reason.txt
-              fi
-              echo "-------------------------------" >> error_reason.txt
-            done <<< "$COMPONENT_FILES"
-
-            if [ "$FAILED_FILES" -gt 0 ]; then
-              echo "❌ $FAILED_FILES component(s) below ${THRESHOLD}% coverage" >> error_reason.txt
-              echo "coverage_passed=false" >> $GITHUB_OUTPUT
-              exit 1
+            if (( $(echo "$STATEMENTS < $THRESHOLD" | bc -l) || \
+                  $(echo "$BRANCHES < $THRESHOLD" | bc -l) || \
+                  $(echo "$LINES < $THRESHOLD" | bc -l) || \
+                  $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
+              echo "❌ $file failed:" >> error_reason.txt
+              echo "   - Statements: $STATEMENTS%" >> error_reason.txt
+              echo "   - Branches:   $BRANCHES%" >> error_reason.txt
+              echo "   - Lines:      $LINES%" >> error_reason.txt
+              echo "   - Functions:  $FUNCTIONS%" >> error_reason.txt
+              FAILED_FILES=$((FAILED_FILES + 1))
             else
-              echo "✅ All components meet ${THRESHOLD}% coverage" >> error_reason.txt
-              echo "coverage_passed=true" >> $GITHUB_OUTPUT
+              echo "✅ $file passed with $STATEMENTS% statements" >> error_reason.txt
             fi
+            echo "-------------------------------" >> error_reason.txt
+          done <<< "$COMPONENT_FILES"
+
+          if [ "$FAILED_FILES" -gt 0 ]; then
+            echo "❌ $FAILED_FILES component(s) below ${THRESHOLD}% coverage" >> error_reason.txt
+            echo "coverage_passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "✅ All components meet ${THRESHOLD}% coverage" >> error_reason.txt
+            echo "coverage_passed=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload Error Report (if exists)
         if: failure()
@@ -174,6 +174,7 @@ jobs:
     needs: deploy
     if: ${{ success() }}
     runs-on: ubuntu-latest
+
     steps:
       - name: Send Success Email
         uses: dawidd6/action-send-mail@v3
@@ -198,6 +199,7 @@ jobs:
     needs: test
     if: ${{ failure() && needs.test.result == 'failure' }}
     runs-on: ubuntu-latest
+
     steps:
       - name: Download Error Report
         uses: actions/download-artifact@v4
@@ -208,9 +210,13 @@ jobs:
       - name: Read error reason into env var
         id: read_reason
         run: |
-          echo "ERROR_REASON<<EOF" >> $GITHUB_ENV
-          cat ./report/error_reason.txt >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          ERROR_REASON_CONTENT=$(cat ./report/error_reason.txt)
+          echo "ERROR_REASON=$ERROR_REASON_CONTENT" >> $GITHUB_ENV
+
+      - name: Debug - Print Error Reason
+        run: |
+          echo "----- ERROR_REASON -----"
+          echo "$ERROR_REASON"
 
       - name: Send Failure Email
         uses: dawidd6/action-send-mail@v3
@@ -225,11 +231,11 @@ jobs:
           body: |
             CI pipeline failed ❌
 
-            🔍 Reason:
+            🔍 **Reason:**
             ${{ env.ERROR_REASON }}
 
-            📄 Branch: ${{ github.ref_name }}
-            🔁 Commit: ${{ github.sha }}
-            👤 Triggered by: ${{ github.actor }}
+            📄 **Branch:** ${{ github.ref_name }}
+            🔁 **Commit:** ${{ github.sha }}
+            👤 **Triggered by:** ${{ github.actor }}
 
-            View details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
