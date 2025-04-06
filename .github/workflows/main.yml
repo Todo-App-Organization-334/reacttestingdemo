@@ -219,14 +219,13 @@ jobs:
           name: error-report
           path: ./report
 
-      - name: Read error_reason.txt into multiline output
+      - name: Read error_reason.txt
         id: read_reason
         run: |
-          {
-            echo "body<<EOF"
-            cat ./report/error_reason.txt
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+          # Read the error reason file and escape special characters for JSON
+          REASON=$(cat ./report/error_reason.txt | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+          echo "{\"reason\":\"$REASON\"}" > reason.json
+          echo "reason_json=$(cat reason.json)" >> $GITHUB_OUTPUT
 
       - name: Send Failure Email
         uses: dawidd6/action-send-mail@v3
@@ -238,14 +237,15 @@ jobs:
           subject: '❌ CI Failure - ${{ github.repository }}'
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
+          html: true
           body: |
-            CI pipeline failed ❌
+            <h2>CI pipeline failed ❌</h2>
 
-            🔍 **Reason:**
-            ${{ steps.read_reason.outputs.body }}
+            <p><strong>Branch:</strong> ${{ github.ref_name }}<br>
+            <strong>Commit:</strong> ${{ github.sha }}<br>
+            <strong>Triggered by:</strong> ${{ github.actor }}</p>
 
-            📄 **Branch:** ${{ github.ref_name }}
-            🔁 **Commit:** ${{ github.sha }}
-            👤 **Triggered by:** ${{ github.actor }}
+            <h3>Detailed Coverage Report:</h3>
+            <pre style="background: #f4f4f4; padding: 10px; border-radius: 5px; white-space: pre-wrap;">${{ fromJson(steps.read_reason.outputs.reason_json).reason }}</pre>
 
-            📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Logs</a></p>
