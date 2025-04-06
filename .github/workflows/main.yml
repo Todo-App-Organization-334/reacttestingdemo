@@ -273,6 +273,7 @@ jobs:
             <strong>Triggered by:</strong> ${{ github.actor }}</p>
 
             <h3>Detailed Coverage Report:</h3>
-            <pre style="background: #f4f4f4; padding: 10px; border-radius: 5px; white-space: pre-wrap;">${{ fromJson(steps.read_reason.outputs.body) }}</pre>
+            <pre>${{ steps.read_reason.outputs.body }}</pre>
+
 
             <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Logs</a></p>
