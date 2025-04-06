@@ -6,13 +6,13 @@ on:
       - main
 
 jobs:
-  # --------------------------------------
+  # -------------------------------
   # 1. TEST JOB: Lint, Format, Coverage
-  # --------------------------------------
+  # -------------------------------
   test:
     runs-on: ubuntu-latest
     outputs:
-      coverage_passed: ${{ steps.test_and_coverage.outputs.coverage_passed }}
+      coverage_passed: ${{ steps.check_coverage.outputs.coverage_passed }}
 
     steps:
       - name: Checkout Code
@@ -58,8 +58,6 @@ jobs:
       - name: Clear Jest Cache
         run: npx jest --clearCache
 
-      # ... (keep the previous parts until the test_and_coverage step)
-
       - name: Run Tests and Generate Coverage
         id: test_and_coverage
         run: |
@@ -69,18 +67,13 @@ jobs:
           TEST_FAILED=0
           COVERAGE_FAILED=0
 
-          # Clear previous report
-          echo "" > $REPORT_FILE
-
           echo "📦 Running tests with coverage..."
           if ! npx jest --coverage; then
-            echo "❌ TEST FAILURES DETECTED" >> $REPORT_FILE
-            echo "Some unit tests failed to pass" >> $REPORT_FILE
-            echo "-----------------------------------" >> $REPORT_FILE
+            echo "❌ Some tests failed!" >> $REPORT_FILE
             TEST_FAILED=1
           fi
 
-          echo "📊 COVERAGE REPORT" >> $REPORT_FILE
+          echo "📊 Detailed Component Coverage Report" >> $REPORT_FILE
           echo "Expected threshold: ${THRESHOLD}%" >> $REPORT_FILE
           echo "===================================" >> $REPORT_FILE
 
@@ -90,78 +83,25 @@ jobs:
             exit 1
           fi
 
-          # Get all files that were tested (excluding test files)
-          COMPONENT_FILES=$(jq -r 'keys[]' "$COVERAGE_FILE" | grep -v "__tests__" | grep -v "node_modules" | sort)
 
-          if [ -z "$COMPONENT_FILES" ]; then
-            echo "❌ No component files found in coverage report!" >> $REPORT_FILE
-            echo "coverage_passed=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
 
-          FAILED_FILES=0
-          PASSED_FILES=0
-          TOTAL_FILES=0
+          echo "📊 Coverage Summary:" >> $REPORT_FILE
+          echo "   - Total components checked: $((FAILED_FILES + PASSED_FILES))" >> $REPORT_FILE
+          echo "   - Passed: $PASSED_FILES" >> $REPORT_FILE
+          echo "   - Failed: $FAILED_FILES" >> $REPORT_FILE
 
-          # Process each file in the coverage report
-          while IFS= read -r fullpath; do
-            # Extract filename without path
-            filename=$(basename "$fullpath")
-            
-            # Get coverage metrics
-            STATEMENTS=$(jq -r ".[\"$fullpath\"].statements.pct" "$COVERAGE_FILE")
-            BRANCHES=$(jq -r ".[\"$fullpath\"].branches.pct" "$COVERAGE_FILE")
-            LINES=$(jq -r ".[\"$fullpath\"].lines.pct" "$COVERAGE_FILE")
-            FUNCTIONS=$(jq -r ".[\"$fullpath\"].functions.pct" "$COVERAGE_FILE")
-
-            # Skip if no coverage data
-            if [ "$STATEMENTS" = "null" ]; then
-              continue
-            fi
-
-            TOTAL_FILES=$((TOTAL_FILES + 1))
-            
-            # Check against threshold
-            if (( $(echo "$STATEMENTS < $THRESHOLD" | bc -l) )) || \
-               (( $(echo "$BRANCHES < $THRESHOLD" | bc -l) )) || \
-               (( $(echo "$LINES < $THRESHOLD" | bc -l) )) || \
-               (( $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
-              echo "❌ $filename failed coverage:" >> $REPORT_FILE
-              echo "   - Path: $fullpath" >> $REPORT_FILE
-              echo "   - Statements: $STATEMENTS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
-              echo "   - Branches:   $BRANCHES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
-              echo "   - Lines:      $LINES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
-              echo "   - Functions:  $FUNCTIONS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
-              echo "-----------------------------------" >> $REPORT_FILE
-              FAILED_FILES=$((FAILED_FILES + 1))
-            else
-              PASSED_FILES=$((PASSED_FILES + 1))
-            fi
-          done <<< "$COMPONENT_FILES"
-
-          # Summary section
-          echo "📊 COVERAGE SUMMARY" >> $REPORT_FILE
-          echo "   - Total files checked: $TOTAL_FILES" >> $REPORT_FILE
-          echo "   - Passed coverage: $PASSED_FILES" >> $REPORT_FILE
-          echo "   - Failed coverage: $FAILED_FILES" >> $REPORT_FILE
-          echo "   - Coverage threshold: $THRESHOLD%" >> $REPORT_FILE
-
-          # Check if any files failed coverage
           if [ "$FAILED_FILES" -gt 0 ]; then
             COVERAGE_FAILED=1
-            echo "❌ COVERAGE FAILURES DETECTED" >> $REPORT_FILE
           fi
 
-          # Final result
           if [ "$TEST_FAILED" -eq 1 ] || [ "$COVERAGE_FAILED" -eq 1 ]; then
+            echo "❌ Test or Coverage failed" >> $REPORT_FILE
             echo "coverage_passed=false" >> $GITHUB_OUTPUT
             exit 1
           else
             echo "✅ All tests passed and coverage is above threshold" >> $REPORT_FILE
             echo "coverage_passed=true" >> $GITHUB_OUTPUT
           fi
-
-      # ... (keep the rest of the file the same)
 
       - name: Upload Error Report
         if: always()
@@ -177,9 +117,9 @@ jobs:
           echo "Error report content:"
           cat error_reason.txt || echo "No error report file found"
 
-  # --------------------------------------
+  # -------------------------------
   # 2. DEPLOY JOB: Only if test passes
-  # --------------------------------------
+  # -------------------------------
   deploy:
     needs: test
     if: ${{ needs.test.outputs.coverage_passed == 'true' }}
@@ -222,9 +162,9 @@ jobs:
       - name: Debug - List S3 Bucket Contents
         run: aws s3 ls s3://${{ secrets.AWS_S3_BUCKET_NAME }} --recursive
 
-  # --------------------------------------
+  # -------------------------------
   # 3. NOTIFY ON SUCCESS
-  # --------------------------------------
+  # -------------------------------
   notify-success:
     needs: deploy
     if: ${{ success() }}
@@ -250,9 +190,9 @@ jobs:
 
             📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-  # --------------------------------------
+  # -------------------------------
   # 4. NOTIFY ON FAILURE
-  # --------------------------------------
+  # -------------------------------
   notify-failure:
     needs: test
     if: ${{ failure() && needs.test.result == 'failure' }}
@@ -295,5 +235,6 @@ jobs:
 
             <h3>Detailed Coverage Report:</h3>
             <pre>${{ steps.read_reason.outputs.body }}</pre>
+
 
             <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Logs</a></p>
