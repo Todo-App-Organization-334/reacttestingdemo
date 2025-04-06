@@ -6,9 +6,6 @@ on:
       - main
 
 jobs:
-  # -------------------------------
-  # 1. TEST JOB: Lint, Format, Coverage
-  # -------------------------------
   test:
     runs-on: ubuntu-latest
     outputs:
@@ -48,13 +45,6 @@ jobs:
         with:
           configFile: commitlint.config.cjs
 
-      - name: Debug - Project Structure
-        run: |
-          echo "Project structure:"
-          find src/components -type d | sort
-          echo "Test files found:"
-          find src -name "*.test.js" || echo "No test files found"
-
       - name: Clear Jest Cache
         run: npx jest --clearCache
 
@@ -64,7 +54,6 @@ jobs:
 
       - name: Check Component Coverage
         id: check_coverage
-        continue-on-error: true
         run: |
           THRESHOLD=90
           COVERAGE_FILE="coverage/coverage-final.json"
@@ -75,7 +64,6 @@ jobs:
           fi
 
           COMPONENT_FILES=$(jq -r 'keys[] | select(contains("__tests__") | not)' "$COVERAGE_FILE")
-
           if [ -z "$COMPONENT_FILES" ]; then
             echo "❌ No component files found in coverage report!" > error_reason.txt
             exit 1
@@ -122,16 +110,13 @@ jobs:
             echo "coverage_passed=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Upload Error Report (if exists)
-        if: steps.check_coverage.outputs.coverage_passed == 'false'
+      - name: Upload Error Report (on failure)
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: error-report
           path: error_reason.txt
 
-  # -------------------------------
-  # 2. DEPLOY JOB: Only if test passes
-  # -------------------------------
   deploy:
     needs: test
     if: ${{ needs.test.outputs.coverage_passed == 'true' }}
@@ -152,15 +137,6 @@ jobs:
       - name: Build Application
         run: npm run build
 
-      - name: Debug - Check Build Folder
-        run: |
-          echo "Checking build directory:"
-          ls -l build || echo "⚠️ Build folder is missing!"
-
-      - name: Debug - Check AWS S3 Bucket Name
-        run: |
-          echo "Target S3 Bucket: ${{ secrets.AWS_S3_BUCKET_NAME }}"
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -169,14 +145,8 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy to AWS S3
-        run: aws s3 sync build/ s3://${{ secrets.AWS_S3_BUCKET_NAME }} --delete --exact-timestamps --debug
+        run: aws s3 sync build/ s3://${{ secrets.AWS_S3_BUCKET_NAME }} --delete --exact-timestamps
 
-      - name: Debug - List S3 Bucket Contents
-        run: aws s3 ls s3://${{ secrets.AWS_S3_BUCKET_NAME }} --recursive
-
-  # -------------------------------
-  # 3. NOTIFY ON SUCCESS
-  # -------------------------------
   notify-success:
     needs: deploy
     if: ${{ success() }}
@@ -202,9 +172,6 @@ jobs:
 
             📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-  # -------------------------------
-  # 4. NOTIFY ON FAILURE
-  # -------------------------------
   notify-failure:
     needs: test
     if: ${{ failure() && needs.test.result == 'failure' }}
@@ -212,7 +179,6 @@ jobs:
 
     steps:
       - name: Download Error Report
-        if: always()
         uses: actions/download-artifact@v4
         with:
           name: error-report
@@ -238,7 +204,7 @@ jobs:
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
           body: |
-            CI pipeline fail ❌
+            CI pipeline failed ❌
 
             🔍 **Reason:**
             ${{ steps.read_reason.outputs.body }}
@@ -248,3 +214,4 @@ jobs:
             👤 **Triggered by:** ${{ github.actor }}
 
             📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          attachments: './report/error_reason.txt'
