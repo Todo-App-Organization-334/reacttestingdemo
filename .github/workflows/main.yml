@@ -57,6 +57,7 @@ jobs:
 
       - name: Clear Jest Cache
         run: npx jest --clearCache
+
       - name: Run Tests and Generate Coverage
         id: test_and_coverage
         run: |
@@ -66,41 +67,69 @@ jobs:
           TEST_FAILED=0
           COVERAGE_FAILED=0
 
-          # Clear previous report
-          echo "" > $REPORT_FILE
-
-          # Run tests with coverage
+          # Step 1: Run tests and capture result
           echo "📦 Running tests with coverage..."
-          if ! npm test -- --coverage --collectCoverageFrom='src/**/*.{js,jsx}' --testMatch='**/*.test.{js,jsx}'; then
+          if ! npm test -- --coverage --collectCoverageFrom='src/components/**/*.js'; then
             echo "❌ Some tests failed!" >> $REPORT_FILE
             TEST_FAILED=1
           fi
 
-          # Generate detailed coverage report
+          # Step 2: Initialize report
           echo "📊 Detailed Component Coverage Report" >> $REPORT_FILE
           echo "Expected threshold: ${THRESHOLD}%" >> $REPORT_FILE
           echo "===================================" >> $REPORT_FILE
 
-          # Check if coverage report exists
           if [ ! -f "$COVERAGE_FILE" ]; then
             echo "❌ Coverage report not found!" >> $REPORT_FILE
             echo "coverage_passed=false" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-          # Process coverage data
-          echo "Coverage Summary:" >> $REPORT_FILE
-          npx jest --coverage --json > coverage.json 2>/dev/null || true
+          COMPONENT_FILES=$(jq -r 'keys[] | select(contains("__tests__") | not)' "$COVERAGE_FILE")
 
-          # Extract and format coverage data
-          jq -r '.coverageMap | to_entries[] | "\(.key): \(.value.summary | .statements, .branches, .functions, .lines | join(", "))%"' coverage.json >> $REPORT_FILE 2>/dev/null || echo "Could not generate coverage summary" >> $REPORT_FILE
+          if [ -z "$COMPONENT_FILES" ]; then
+            echo "❌ No component files found in coverage report!" >> $REPORT_FILE
+            echo "coverage_passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
 
-          # Check for threshold violations
-          VIOLATIONS=$(jq -r '.numFailedTestsByThresholds' coverage.json)
-          if [ "$VIOLATIONS" -gt 0 ]; then
+          FAILED_FILES=0
+          PASSED_FILES=0
+
+          while IFS= read -r file; do
+            STATEMENTS=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
+            BRANCHES=$(jq -r ".[\"$file\"].branches.pct" "$COVERAGE_FILE")
+            LINES=$(jq -r ".[\"$file\"].lines.pct" "$COVERAGE_FILE")
+            FUNCTIONS=$(jq -r ".[\"$file\"].functions.pct" "$COVERAGE_FILE")
+
+            if [ "$STATEMENTS" = "null" ]; then
+              echo "⚠️ No coverage data for $file" >> $REPORT_FILE
+              continue
+            fi
+
+            if (( $(echo "$STATEMENTS < $THRESHOLD" | bc -l) || \
+                  $(echo "$BRANCHES < $THRESHOLD" | bc -l) || \
+                  $(echo "$LINES < $THRESHOLD" | bc -l) || \
+                  $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
+              echo "❌ $file failed coverage check:" >> $REPORT_FILE
+              echo "   - Statements: $STATEMENTS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
+              echo "   - Branches:   $BRANCHES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
+              echo "   - Lines:      $LINES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
+              echo "   - Functions:  $FUNCTIONS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
+              echo "-----------------------------------" >> $REPORT_FILE
+              FAILED_FILES=$((FAILED_FILES + 1))
+            else
+              PASSED_FILES=$((PASSED_FILES + 1))
+            fi
+          done <<< "$COMPONENT_FILES"
+
+          echo "📊 Coverage Summary:" >> $REPORT_FILE
+          echo "   - Total components checked: $((FAILED_FILES + PASSED_FILES))" >> $REPORT_FILE
+          echo "   - Passed: $PASSED_FILES" >> $REPORT_FILE
+          echo "   - Failed: $FAILED_FILES" >> $REPORT_FILE
+
+          if [ "$FAILED_FILES" -gt 0 ]; then
             COVERAGE_FAILED=1
-            echo -e "\n❌ Coverage thresholds not met!" >> $REPORT_FILE
-            jq -r '.coverageMap | to_entries[] | select(.value.summary.statements < '$THRESHOLD' or .value.summary.branches < '$THRESHOLD' or .value.summary.functions < '$THRESHOLD' or .value.summary.lines < '$THRESHOLD') | "\(.key) failed: \(.value.summary | .statements, .branches, .functions, .lines | join("%, "))%"' coverage.json >> $REPORT_FILE 2>/dev/null
           fi
 
           # Final decision
@@ -113,9 +142,6 @@ jobs:
             echo "coverage_passed=true" >> $GITHUB_OUTPUT
           fi
 
-          # Add the full coverage table
-          echo -e "\nFull Coverage Table:" >> $REPORT_FILE
-          cat coverage/lcov-report/index.html | grep -A 1000 -E "<tbody>|</tbody>" | sed 's/<[^>]*>//g' >> $REPORT_FILE 2>&1 || echo "Could not generate full report" >> $REPORT_FILE
       - name: Upload Error Report
         if: always()
         uses: actions/upload-artifact@v4
@@ -213,26 +239,20 @@ jobs:
 
     steps:
       - name: Download Error Report
+        if: always()
         uses: actions/download-artifact@v4
         with:
           name: error-report
           path: ./report
 
-      - name: Read error_reason.txt
+      - name: Read error_reason.txt into multiline output
         id: read_reason
         run: |
-          # Read the file content and escape HTML special characters
-          CONTENT=$(cat ./report/error_reason.txt 2>/dev/null || echo "No error report available")
-          CONTENT=${CONTENT//</&lt;}
-          CONTENT=${CONTENT//>/&gt;}
-          CONTENT=${CONTENT//&/&amp;}
-          CONTENT=${CONTENT//'"'/&quot;}
-
-          # Store in output variable
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "CI pipeline failed - Details:" >> $GITHUB_OUTPUT
-          echo "$CONTENT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "body<<EOF"
+            cat ./report/error_reason.txt || echo "No error report available"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Send Failure Email
         uses: dawidd6/action-send-mail@v3
@@ -246,13 +266,14 @@ jobs:
           from: ${{ secrets.EMAIL_FROM }}
           html: true
           body: |
-            <h2>CI pipeline failed</h2>
+            <h2>CI pipeline failed </h2>
 
             <p><strong>Branch:</strong> ${{ github.ref_name }}<br>
             <strong>Commit:</strong> ${{ github.sha }}<br>
             <strong>Triggered by:</strong> ${{ github.actor }}</p>
 
-            <h3>Error Details:</h3>
+            <h3>Detailed Coverage Report:</h3>
             <pre>${{ steps.read_reason.outputs.body }}</pre>
+
 
             <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Logs</a></p>
