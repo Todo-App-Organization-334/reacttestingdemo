@@ -69,7 +69,7 @@ jobs:
 
           # Step 1: Run tests and capture result
           echo "📦 Running tests with coverage..."
-          if ! npm test -- --coverage --collectCoverageFrom='src/components/**/*.js'; then
+          if ! npx jest --coverage --collectCoverageFrom='src/components/**/*.js' --testPathIgnorePatterns="skip-this-file-if-needed"; then
             echo "❌ Some tests failed!" >> $REPORT_FILE
             TEST_FAILED=1
           fi
