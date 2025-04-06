@@ -5,7 +5,7 @@ import TodoPage from './pages/TodoPage/TodoPage';
 import FollowersPage from './pages/FollowersPage/FollowersPage';
 
 function App() {
-  const x = 42;
+  const x = 45;
   return (
     <>
       <div className="App">
