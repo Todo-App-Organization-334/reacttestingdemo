@@ -207,20 +207,12 @@ jobs:
           name: error-report
           path: ./report
 
-      - name: Read and decode error reason
-        id: read_reason
+      - name: Decode and Save Error Reason
+        id: decode
         run: |
-          ENCODED=$(base64 -w 0 ./report/error_reason.txt)
-          echo "encoded=$ENCODED" >> $GITHUB_OUTPUT
-          DECODED=$(echo "$ENCODED" | base64 -d)
-          echo "decoded<<EOF" >> $GITHUB_OUTPUT
-          echo "$DECODED" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Debug - Print Decoded Error Reason
-        run: |
-          echo "----- ERROR_REASON (decoded) -----"
-          echo "${{ steps.read_reason.outputs.decoded }}"
+          CONTENT=$(cat ./report/error_reason.txt)
+          echo "$CONTENT"
+          echo "$CONTENT" > decoded_error_reason.txt
 
       - name: Send Failure Email
         uses: dawidd6/action-send-mail@v3
@@ -236,10 +228,15 @@ jobs:
             CI pipeline failed ❌
 
             🔍 **Reason:**
-            ${{ steps.read_reason.outputs.decoded }}
+            ${{ steps.decode.outputs.content }}
 
             📄 **Branch:** ${{ github.ref_name }}
             🔁 **Commit:** ${{ github.sha }}
             👤 **Triggered by:** ${{ github.actor }}
 
             📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: Debug - Show Full Error Report
+        run: |
+          echo "------ FULL ERROR REPORT ------"
+          cat ./decoded_error_reason.txt
