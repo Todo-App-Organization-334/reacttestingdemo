@@ -5,7 +5,6 @@ import TodoPage from './pages/TodoPage/TodoPage';
 import FollowersPage from './pages/FollowersPage/FollowersPage';
 
 function App() {
-  console.log('Hello');
   const x = 42;
   return (
     <>
