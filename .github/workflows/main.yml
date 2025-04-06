@@ -143,3 +143,27 @@ jobs:
 
       - name: Debug - List S3 Bucket Contents
         run: aws s3 ls s3://${{ secrets.AWS_S3_BUCKET_NAME }} --recursive
+
+  notify-success:
+    needs: deploy
+    if: ${{ success() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Success Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.EMAIL_SERVER }}
+          server_port: ${{ secrets.EMAIL_PORT }}
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: '✅ Deployment Successful - ${{ github.repository }}'
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_FROM }}
+          body: |
+            The deployment of your React app was successful 🎉
+
+            ✅ Branch: ${{ github.ref_name }}
+            ✅ Commit: ${{ github.sha }}
+            ✅ Triggered by: ${{ github.actor }}
+
+            View the workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
