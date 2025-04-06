@@ -205,13 +205,12 @@ jobs:
           name: error-report
           path: ./report
 
-      - name: Read error reason
+      - name: Read error reason into env var
         id: read_reason
         run: |
-          echo "Reading full multiline error report..."
-          echo "reason<<EOF" >> $GITHUB_OUTPUT
-          cat ./report/error_reason.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "ERROR_REASON<<EOF" >> $GITHUB_ENV
+          cat ./report/error_reason.txt >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Send Failure Email
         uses: dawidd6/action-send-mail@v3
@@ -226,7 +225,9 @@ jobs:
           body: |
             CI pipeline failed ❌
 
-            🔍 Reason: ${{ steps.read_reason.outputs.reason }}
+            🔍 Reason:
+            ${{ env.ERROR_REASON }}
+
             📄 Branch: ${{ github.ref_name }}
             🔁 Commit: ${{ github.sha }}
             👤 Triggered by: ${{ github.actor }}
