@@ -237,7 +237,7 @@ jobs:
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
           body: |
-            CI pipeline failed ❌
+            CI pipeline fail ❌
 
             🔍 **Reason:**
             ${{ steps.read_reason.outputs.body }}
