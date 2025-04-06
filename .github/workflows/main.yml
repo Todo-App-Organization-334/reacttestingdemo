@@ -69,7 +69,7 @@ jobs:
           # Clear previous report
           echo "" > $REPORT_FILE
 
-          # Run tests with detailed coverage
+          # Run tests with coverage
           echo "📦 Running tests with coverage..."
           if ! npm test -- --coverage --collectCoverageFrom='src/**/*.{js,jsx}' --testMatch='**/*.test.{js,jsx}'; then
             echo "❌ Some tests failed!" >> $REPORT_FILE
@@ -83,20 +83,24 @@ jobs:
 
           # Check if coverage report exists
           if [ ! -f "$COVERAGE_FILE" ]; then
-            echo "❌ Coverage report not found at $COVERAGE_FILE!" >> $REPORT_FILE
+            echo "❌ Coverage report not found!" >> $REPORT_FILE
             echo "coverage_passed=false" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-          # Process coverage data manually
-          echo -e "\nCoverage Summary:" >> $REPORT_FILE
-          npx jest --coverage --json | jq -r '.coverageMap | to_entries[] | "\(.key): \(.value.summary)"' >> $REPORT_FILE 2>&1 || COVERAGE_FAILED=1
+          # Process coverage data
+          echo "Coverage Summary:" >> $REPORT_FILE
+          npx jest --coverage --json > coverage.json 2>/dev/null || true
 
-          # Check threshold violations
-          VIOLATIONS=$(npx jest --coverage --json | jq -r '.numFailedTestsByThresholds')
+          # Extract and format coverage data
+          jq -r '.coverageMap | to_entries[] | "\(.key): \(.value.summary | .statements, .branches, .functions, .lines | join(", "))%"' coverage.json >> $REPORT_FILE 2>/dev/null || echo "Could not generate coverage summary" >> $REPORT_FILE
+
+          # Check for threshold violations
+          VIOLATIONS=$(jq -r '.numFailedTestsByThresholds' coverage.json)
           if [ "$VIOLATIONS" -gt 0 ]; then
             COVERAGE_FAILED=1
             echo -e "\n❌ Coverage thresholds not met!" >> $REPORT_FILE
+            jq -r '.coverageMap | to_entries[] | select(.value.summary.statements < '$THRESHOLD' or .value.summary.branches < '$THRESHOLD' or .value.summary.functions < '$THRESHOLD' or .value.summary.lines < '$THRESHOLD') | "\(.key) failed: \(.value.summary | .statements, .branches, .functions, .lines | join("%, "))%"' coverage.json >> $REPORT_FILE 2>/dev/null
           fi
 
           # Final decision
@@ -109,10 +113,9 @@ jobs:
             echo "coverage_passed=true" >> $GITHUB_OUTPUT
           fi
 
-          # Add the full coverage table to the report
-          echo -e "\nFull Coverage Report:" >> $REPORT_FILE
+          # Add the full coverage table
+          echo -e "\nFull Coverage Table:" >> $REPORT_FILE
           cat coverage/lcov-report/index.html | grep -A 1000 -E "<tbody>|</tbody>" | sed 's/<[^>]*>//g' >> $REPORT_FILE 2>&1 || echo "Could not generate full report" >> $REPORT_FILE
-
       - name: Upload Error Report
         if: always()
         uses: actions/upload-artifact@v4
