@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "start": "react-scripts --openssl-legacy-provider start",
-    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint . --ext js,jsx --fix",
+    "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint src --ext js,jsx --fix",
     "format": "prettier --write 'src/**/*.{js,jsx,css,html}'",
     "prepare": "husky install",
     "postinstall": "husky install",

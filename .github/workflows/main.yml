@@ -33,10 +33,12 @@ jobs:
         run: npm ci
 
       - name: Run lint
-        run: npm run lint
+        run: |
+          npm run lint || (echo "❌ Linting failed" > error_reason.txt && exit 1)
 
       - name: Run format check
-        run: npm run format
+        run: |
+          npm run format || (echo "❌ Formatting check failed" > error_reason.txt && exit 1)
 
       - name: Check commit messages
         uses: wagoid/commitlint-github-action@v3
@@ -63,19 +65,16 @@ jobs:
           COVERAGE_FILE="coverage/coverage-final.json"
 
           if [ ! -f "$COVERAGE_FILE" ]; then
-            echo "❌ Coverage report not found!"
+            echo "❌ Coverage report not found!" > error_reason.txt
             exit 1
           fi
 
           COMPONENT_FILES=$(jq -r 'keys[] | select(contains("__tests__") | not)' "$COVERAGE_FILE")
 
           if [ -z "$COMPONENT_FILES" ]; then
-            echo "❌ No component files found in coverage report!"
+            echo "❌ No component files found in coverage report!" > error_reason.txt
             exit 1
           fi
-
-          echo "Checking coverage for components:"
-          echo "$COMPONENT_FILES"
 
           FAILED_FILES=0
           while IFS= read -r file; do
@@ -94,13 +93,20 @@ jobs:
           done <<< "$COMPONENT_FILES"
 
           if [ "$FAILED_FILES" -gt 0 ]; then
-            echo "❌ $FAILED_FILES components below $THRESHOLD% coverage"
+            echo "❌ $FAILED_FILES components below $THRESHOLD% coverage" > error_reason.txt
             echo "coverage_passed=false" >> $GITHUB_OUTPUT
             exit 1
           else
             echo "✅ All components meet $THRESHOLD% coverage"
             echo "coverage_passed=true" >> $GITHUB_OUTPUT
           fi
+
+      - name: Upload Error Report (if exists)
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: error-report
+          path: error_reason.txt
 
   deploy:
     needs: test
@@ -167,3 +173,40 @@ jobs:
             ✅ Triggered by: ${{ github.actor }}
 
             View the workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  notify-failure:
+    needs: test
+    if: ${{ failure() && needs.test.result == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Error Report
+        uses: actions/download-artifact@v3
+        with:
+          name: error-report
+          path: ./report
+
+      - name: Read error reason
+        id: read_reason
+        run: |
+          REASON=$(cat ./report/error_reason.txt || echo "Unknown reason")
+          echo "reason=$REASON" >> $GITHUB_OUTPUT
+
+      - name: Send Failure Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.EMAIL_SERVER }}
+          server_port: ${{ secrets.EMAIL_PORT }}
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: '❌ CI Failure - ${{ github.repository }}'
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_FROM }}
+          body: |
+            CI pipeline failed ❌
+
+            🔍 Reason: ${{ steps.read_reason.outputs.reason }}
+            📄 Branch: ${{ github.ref_name }}
+            🔁 Commit: ${{ github.sha }}
+            👤 Triggered by: ${{ github.actor }}
+
+            View details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -5,14 +5,18 @@ import TodoPage from './pages/TodoPage/TodoPage';
 import FollowersPage from './pages/FollowersPage/FollowersPage';
 
 function App() {
+  console.log('Hello');
+  const x = 42;
   return (
-    <div className="App">
-      <Banner />
-      <Switch>
-        <Route strict exact path="/" component={TodoPage} />
-        <Route strict exact path="/followers" component={FollowersPage} />
-      </Switch>
-    </div>
+    <>
+      <div className="App">
+        <Banner />
+        <Switch>
+          <Route strict exact path="/" component={TodoPage} />
+          <Route strict exact path="/followers" component={FollowersPage} />
+        </Switch>
+      </div>
+    </>
   );
 }
 
