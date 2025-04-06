@@ -59,7 +59,7 @@ jobs:
         run: npx jest --clearCache
 
       - name: Run Tests and Generate Coverage
-        id: test_and_coverage
+        id: check_coverage
         run: |
           THRESHOLD=90
           COVERAGE_FILE="coverage/coverage-final.json"
@@ -67,15 +67,12 @@ jobs:
           TEST_FAILED=0
           COVERAGE_FAILED=0
 
-          # Step 1: Run tests and capture result
           echo "📦 Running tests with coverage..."
           if ! npx jest --coverage --collectCoverageFrom='src/components/**/*.js' --testPathIgnorePatterns="skip-this-file-if-needed"; then
-
             echo "❌ Some tests failed!" >> $REPORT_FILE
             TEST_FAILED=1
           fi
 
-          # Step 2: Initialize report
           echo "📊 Detailed Component Coverage Report" >> $REPORT_FILE
           echo "Expected threshold: ${THRESHOLD}%" >> $REPORT_FILE
           echo "===================================" >> $REPORT_FILE
@@ -133,7 +130,6 @@ jobs:
             COVERAGE_FAILED=1
           fi
 
-          # Final decision
           if [ "$TEST_FAILED" -eq 1 ] || [ "$COVERAGE_FAILED" -eq 1 ]; then
             echo "❌ Test or Coverage failed" >> $REPORT_FILE
             echo "coverage_passed=false" >> $GITHUB_OUTPUT
@@ -240,20 +236,10 @@ jobs:
 
     steps:
       - name: Download Error Report
-        if: always()
         uses: actions/download-artifact@v4
         with:
           name: error-report
-          path: ./report
-
-      - name: Read error_reason.txt into multiline output
-        id: read_reason
-        run: |
-          {
-            echo "body<<EOF"
-            cat ./report/error_reason.txt || echo "No error report available"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+          path: ./
 
       - name: Send Failure Email
         uses: dawidd6/action-send-mail@v3
@@ -262,19 +248,22 @@ jobs:
           server_port: ${{ secrets.EMAIL_PORT }}
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: 'CI Failure - ${{ github.repository }}'
+          subject: '❌ Deployment Failed - ${{ github.repository }}'
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
-          html: true
           body: |
-            <h2>CI pipeline failed </h2>
+            The deployment of your React app has failed ❌
 
-            <p><strong>Branch:</strong> ${{ github.ref_name }}<br>
-            <strong>Commit:</strong> ${{ github.sha }}<br>
-            <strong>Triggered by:</strong> ${{ github.actor }}</p>
+            ❗ Branch: ${{ github.ref_name }}
+            ❗ Commit: ${{ github.sha }}
+            ❗ Triggered by: ${{ github.actor }}
 
-            <h3>Detailed Coverage Report:</h3>
-            <pre>${{ steps.read_reason.outputs.body }}</pre>
+            📋 Error Report:
+            ${{ steps.read_error.outputs.content }}
 
-
-            <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Logs</a></p>
+      - name: Read Error Report
+        id: read_error
+        run: |
+          echo 'content<<EOF' >> $GITHUB_OUTPUT
+          cat error_reason.txt >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
