@@ -123,7 +123,7 @@ jobs:
           fi
 
       - name: Upload Error Report (if exists)
-        if: always()
+        if: steps.check_coverage.outputs.coverage_passed == 'false'
         uses: actions/upload-artifact@v4
         with:
           name: error-report
@@ -212,6 +212,7 @@ jobs:
 
     steps:
       - name: Download Error Report
+        if: always()
         uses: actions/download-artifact@v4
         with:
           name: error-report
