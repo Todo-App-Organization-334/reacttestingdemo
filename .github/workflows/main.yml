@@ -266,7 +266,7 @@ jobs:
           from: ${{ secrets.EMAIL_FROM }}
           html: true
           body: |
-            <h2>CI pipeline failed ❌</h2>
+            <h2>CI pipeline failed </h2>
 
             <p><strong>Branch:</strong> ${{ github.ref_name }}<br>
             <strong>Commit:</strong> ${{ github.sha }}<br>
