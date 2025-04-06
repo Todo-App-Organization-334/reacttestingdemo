@@ -58,10 +58,110 @@ jobs:
       - name: Clear Jest Cache
         run: npx jest --clearCache
 
+      # ... (keep the previous parts until the test_and_coverage step)
+
       - name: Run Tests and Generate Coverage
         id: test_and_coverage
         run: |
-          # [Test + Coverage script – unchanged for brevity]
+          THRESHOLD=90
+          COVERAGE_FILE="coverage/coverage-final.json"
+          REPORT_FILE="error_reason.txt"
+          TEST_FAILED=0
+          COVERAGE_FAILED=0
+
+          # Clear previous report
+          echo "" > $REPORT_FILE
+
+          echo "📦 Running tests with coverage..."
+          if ! npx jest --coverage; then
+            echo "❌ TEST FAILURES DETECTED" >> $REPORT_FILE
+            echo "Some unit tests failed to pass" >> $REPORT_FILE
+            echo "-----------------------------------" >> $REPORT_FILE
+            TEST_FAILED=1
+          fi
+
+          echo "📊 COVERAGE REPORT" >> $REPORT_FILE
+          echo "Expected threshold: ${THRESHOLD}%" >> $REPORT_FILE
+          echo "===================================" >> $REPORT_FILE
+
+          if [ ! -f "$COVERAGE_FILE" ]; then
+            echo "❌ Coverage report not found!" >> $REPORT_FILE
+            echo "coverage_passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          # Get all files that were tested (excluding test files)
+          COMPONENT_FILES=$(jq -r 'keys[]' "$COVERAGE_FILE" | grep -v "__tests__" | grep -v "node_modules" | sort)
+
+          if [ -z "$COMPONENT_FILES" ]; then
+            echo "❌ No component files found in coverage report!" >> $REPORT_FILE
+            echo "coverage_passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          FAILED_FILES=0
+          PASSED_FILES=0
+          TOTAL_FILES=0
+
+          # Process each file in the coverage report
+          while IFS= read -r fullpath; do
+            # Extract filename without path
+            filename=$(basename "$fullpath")
+            
+            # Get coverage metrics
+            STATEMENTS=$(jq -r ".[\"$fullpath\"].statements.pct" "$COVERAGE_FILE")
+            BRANCHES=$(jq -r ".[\"$fullpath\"].branches.pct" "$COVERAGE_FILE")
+            LINES=$(jq -r ".[\"$fullpath\"].lines.pct" "$COVERAGE_FILE")
+            FUNCTIONS=$(jq -r ".[\"$fullpath\"].functions.pct" "$COVERAGE_FILE")
+
+            # Skip if no coverage data
+            if [ "$STATEMENTS" = "null" ]; then
+              continue
+            fi
+
+            TOTAL_FILES=$((TOTAL_FILES + 1))
+            
+            # Check against threshold
+            if (( $(echo "$STATEMENTS < $THRESHOLD" | bc -l) )) || \
+               (( $(echo "$BRANCHES < $THRESHOLD" | bc -l) )) || \
+               (( $(echo "$LINES < $THRESHOLD" | bc -l) )) || \
+               (( $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
+              echo "❌ $filename failed coverage:" >> $REPORT_FILE
+              echo "   - Path: $fullpath" >> $REPORT_FILE
+              echo "   - Statements: $STATEMENTS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
+              echo "   - Branches:   $BRANCHES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
+              echo "   - Lines:      $LINES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
+              echo "   - Functions:  $FUNCTIONS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
+              echo "-----------------------------------" >> $REPORT_FILE
+              FAILED_FILES=$((FAILED_FILES + 1))
+            else
+              PASSED_FILES=$((PASSED_FILES + 1))
+            fi
+          done <<< "$COMPONENT_FILES"
+
+          # Summary section
+          echo "📊 COVERAGE SUMMARY" >> $REPORT_FILE
+          echo "   - Total files checked: $TOTAL_FILES" >> $REPORT_FILE
+          echo "   - Passed coverage: $PASSED_FILES" >> $REPORT_FILE
+          echo "   - Failed coverage: $FAILED_FILES" >> $REPORT_FILE
+          echo "   - Coverage threshold: $THRESHOLD%" >> $REPORT_FILE
+
+          # Check if any files failed coverage
+          if [ "$FAILED_FILES" -gt 0 ]; then
+            COVERAGE_FAILED=1
+            echo "❌ COVERAGE FAILURES DETECTED" >> $REPORT_FILE
+          fi
+
+          # Final result
+          if [ "$TEST_FAILED" -eq 1 ] || [ "$COVERAGE_FAILED" -eq 1 ]; then
+            echo "coverage_passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "✅ All tests passed and coverage is above threshold" >> $REPORT_FILE
+            echo "coverage_passed=true" >> $GITHUB_OUTPUT
+          fi
+
+      # ... (keep the rest of the file the same)
 
       - name: Upload Error Report
         if: always()
@@ -155,22 +255,25 @@ jobs:
   # --------------------------------------
   notify-failure:
     needs: test
-    if: ${{ failure() }}
+    if: ${{ failure() && needs.test.result == 'failure' }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Download Error Report
+        if: always()
         uses: actions/download-artifact@v4
         with:
           name: error-report
           path: ./report
 
-      - name: Read error report
-        id: error_report
+      - name: Read error_reason.txt into multiline output
+        id: read_reason
         run: |
-          echo "report<<EOF" >> $GITHUB_OUTPUT
-          cat ./report/error_reason.txt || echo "No detailed error report available" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "body<<EOF"
+            cat ./report/error_reason.txt || echo "No error report available"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Send Failure Email
         uses: dawidd6/action-send-mail@v3
@@ -179,14 +282,18 @@ jobs:
           server_port: ${{ secrets.EMAIL_PORT }}
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: '❌ Deployment Failed - ${{ github.repository }}'
+          subject: 'CI Failure - ${{ github.repository }}'
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
+          html: true
           body: |
-            The deployment of your React app has failed ❌
+            <h2>CI pipeline failed </h2>
 
-            🔍 Error Report:
-            ${{ steps.error_report.outputs.report }}
+            <p><strong>Branch:</strong> ${{ github.ref_name }}<br>
+            <strong>Commit:</strong> ${{ github.sha }}<br>
+            <strong>Triggered by:</strong> ${{ github.actor }}</p>
 
-            🛠 Triggered by: ${{ github.actor }}
-            📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            <h3>Detailed Coverage Report:</h3>
+            <pre>${{ steps.read_reason.outputs.body }}</pre>
+
+            <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Logs</a></p>
