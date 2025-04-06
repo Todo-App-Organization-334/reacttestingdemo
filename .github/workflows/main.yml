@@ -67,14 +67,12 @@ jobs:
           TEST_FAILED=0
           COVERAGE_FAILED=0
 
-          # Step 1: Run tests and capture result
           echo "📦 Running tests with coverage..."
-          if ! npx jest --coverage --collectCoverageFrom='src/components/**/*.js' --testPathIgnorePatterns="skip-this-file-if-needed"; then
+          if ! npx jest --coverage; then
             echo "❌ Some tests failed!" >> $REPORT_FILE
             TEST_FAILED=1
           fi
 
-          # Step 2: Initialize report
           echo "📊 Detailed Component Coverage Report" >> $REPORT_FILE
           echo "Expected threshold: ${THRESHOLD}%" >> $REPORT_FILE
           echo "===================================" >> $REPORT_FILE
@@ -85,7 +83,7 @@ jobs:
             exit 1
           fi
 
-          COMPONENT_FILES=$(jq -r 'keys[] | select(contains("__tests__") | not)' "$COVERAGE_FILE")
+          COMPONENT_FILES=$(jq -r 'to_entries[] | select(.key | test("/src/components/") and test("__tests__") | not) | .key' "$COVERAGE_FILE")
 
           if [ -z "$COMPONENT_FILES" ]; then
             echo "❌ No component files found in coverage report!" >> $REPORT_FILE
@@ -102,8 +100,10 @@ jobs:
             LINES=$(jq -r ".[\"$file\"].lines.pct" "$COVERAGE_FILE")
             FUNCTIONS=$(jq -r ".[\"$file\"].functions.pct" "$COVERAGE_FILE")
 
+            RELATIVE_PATH=${file#*src/}
+
             if [ "$STATEMENTS" = "null" ]; then
-              echo "⚠️ No coverage data for $file" >> $REPORT_FILE
+              echo "⚠️ No coverage data for $RELATIVE_PATH" >> $REPORT_FILE
               continue
             fi
 
@@ -111,7 +111,7 @@ jobs:
                   $(echo "$BRANCHES < $THRESHOLD" | bc -l) || \
                   $(echo "$LINES < $THRESHOLD" | bc -l) || \
                   $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
-              echo "❌ $file failed coverage check:" >> $REPORT_FILE
+              echo "❌ $RELATIVE_PATH failed coverage check:" >> $REPORT_FILE
               echo "   - Statements: $STATEMENTS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
               echo "   - Branches:   $BRANCHES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
               echo "   - Lines:      $LINES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
@@ -132,7 +132,6 @@ jobs:
             COVERAGE_FAILED=1
           fi
 
-          # Final decision
           if [ "$TEST_FAILED" -eq 1 ] || [ "$COVERAGE_FAILED" -eq 1 ]; then
             echo "❌ Test or Coverage failed" >> $REPORT_FILE
             echo "coverage_passed=false" >> $GITHUB_OUTPUT
