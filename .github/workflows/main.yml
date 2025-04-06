@@ -62,48 +62,64 @@ jobs:
             exit 1
           )
 
-      - name: Check Component Coverage
-        id: check_coverage
-        run: |
-          THRESHOLD=90
-          COVERAGE_FILE="coverage/coverage-final.json"
+          - name: Check Component Coverage
+          id: check_coverage
+          run: |
+            THRESHOLD=90
+            COVERAGE_FILE="coverage/coverage-final.json"
 
-          if [ ! -f "$COVERAGE_FILE" ]; then
-            echo "❌ Coverage report not found!" > error_reason.txt
-            exit 1
-          fi
-
-          COMPONENT_FILES=$(jq -r 'keys[] | select(contains("__tests__") | not)' "$COVERAGE_FILE")
-
-          if [ -z "$COMPONENT_FILES" ]; then
-            echo "❌ No component files found in coverage report!" > error_reason.txt
-            exit 1
-          fi
-
-          FAILED_FILES=0
-          while IFS= read -r file; do
-            COVERAGE=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
-            if [ "$COVERAGE" = "null" ]; then
-              echo "⚠️ No coverage data for $file"
-              continue
+            if [ ! -f "$COVERAGE_FILE" ]; then
+              echo "❌ Coverage report not found!" > error_reason.txt
+              exit 1
             fi
 
-            if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
-              echo "❌ $file has $COVERAGE% coverage (below $THRESHOLD%)"
-              FAILED_FILES=$((FAILED_FILES + 1))
+            COMPONENT_FILES=$(jq -r 'keys[] | select(contains("__tests__") | not)' "$COVERAGE_FILE")
+
+            if [ -z "$COMPONENT_FILES" ]; then
+              echo "❌ No component files found in coverage report!" > error_reason.txt
+              exit 1
+            fi
+
+            FAILED_FILES=0
+            echo "📊 Component Coverage Report:" > error_reason.txt
+            echo "Expected threshold: ${THRESHOLD}%" >> error_reason.txt
+            echo "-------------------------------" >> error_reason.txt
+
+            while IFS= read -r file; do
+              STATEMENTS=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
+              BRANCHES=$(jq -r ".[\"$file\"].branches.pct" "$COVERAGE_FILE")
+              LINES=$(jq -r ".[\"$file\"].lines.pct" "$COVERAGE_FILE")
+              FUNCTIONS=$(jq -r ".[\"$file\"].functions.pct" "$COVERAGE_FILE")
+
+              if [ "$STATEMENTS" = "null" ]; then
+                echo "⚠️ No coverage data for $file" >> error_reason.txt
+                continue
+              fi
+
+              if (( $(echo "$STATEMENTS < $THRESHOLD" | bc -l) || \
+                    $(echo "$BRANCHES < $THRESHOLD" | bc -l) || \
+                    $(echo "$LINES < $THRESHOLD" | bc -l) || \
+                    $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
+                echo "❌ $file failed:" >> error_reason.txt
+                echo "   - Statements: $STATEMENTS%" >> error_reason.txt
+                echo "   - Branches:   $BRANCHES%" >> error_reason.txt
+                echo "   - Lines:      $LINES%" >> error_reason.txt
+                echo "   - Functions:  $FUNCTIONS%" >> error_reason.txt
+                FAILED_FILES=$((FAILED_FILES + 1))
+              else
+                echo "✅ $file passed with $STATEMENTS% statements" >> error_reason.txt
+              fi
+              echo "-------------------------------" >> error_reason.txt
+            done <<< "$COMPONENT_FILES"
+
+            if [ "$FAILED_FILES" -gt 0 ]; then
+              echo "❌ $FAILED_FILES component(s) below ${THRESHOLD}% coverage" >> error_reason.txt
+              echo "coverage_passed=false" >> $GITHUB_OUTPUT
+              exit 1
             else
-              echo "✅ $file meets coverage with $COVERAGE%"
+              echo "✅ All components meet ${THRESHOLD}% coverage" >> error_reason.txt
+              echo "coverage_passed=true" >> $GITHUB_OUTPUT
             fi
-          done <<< "$COMPONENT_FILES"
-
-          if [ "$FAILED_FILES" -gt 0 ]; then
-            echo "❌ $FAILED_FILES components below $THRESHOLD% coverage" > error_reason.txt
-            echo "coverage_passed=false" >> $GITHUB_OUTPUT
-            exit 1
-          else
-            echo "✅ All components meet $THRESHOLD% coverage"
-            echo "coverage_passed=true" >> $GITHUB_OUTPUT
-          fi
 
       - name: Upload Error Report (if exists)
         if: failure()
