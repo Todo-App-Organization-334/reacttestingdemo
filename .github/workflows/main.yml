@@ -58,21 +58,24 @@ jobs:
       - name: Clear Jest Cache
         run: npx jest --clearCache
 
-      - name: Run Tests with Coverage
-        run: |
-          if ! npm test -- --coverage --collectCoverageFrom='src/components/**/*.js'; then
-            echo "⚠️ Jest test command failed. Proceeding to check coverage details..." >> error_reason.txt
-          fi
-
-      - name: Check Component Coverage
-        id: check_coverage
+      - name: Run Tests and Generate Coverage
+        id: test_and_coverage
         run: |
           THRESHOLD=90
           COVERAGE_FILE="coverage/coverage-final.json"
           REPORT_FILE="error_reason.txt"
+          TEST_FAILED=0
+          COVERAGE_FAILED=0
 
-          # Initialize error report
-          echo "📊 Detailed Component Coverage Report" > $REPORT_FILE
+          # Step 1: Run tests and capture result
+          echo "📦 Running tests with coverage..."
+          if ! npm test -- --coverage --collectCoverageFrom='src/components/**/*.js'; then
+            echo "❌ Some tests failed!" >> $REPORT_FILE
+            TEST_FAILED=1
+          fi
+
+          # Step 2: Initialize report
+          echo "📊 Detailed Component Coverage Report" >> $REPORT_FILE
           echo "Expected threshold: ${THRESHOLD}%" >> $REPORT_FILE
           echo "===================================" >> $REPORT_FILE
 
@@ -94,7 +97,6 @@ jobs:
           PASSED_FILES=0
 
           while IFS= read -r file; do
-            # Extract coverage data
             STATEMENTS=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
             BRANCHES=$(jq -r ".[\"$file\"].branches.pct" "$COVERAGE_FILE")
             LINES=$(jq -r ".[\"$file\"].lines.pct" "$COVERAGE_FILE")
@@ -105,37 +107,38 @@ jobs:
               continue
             fi
 
-            # Check against threshold
             if (( $(echo "$STATEMENTS < $THRESHOLD" | bc -l) || \
-                $(echo "$BRANCHES < $THRESHOLD" | bc -l) || \
-                $(echo "$LINES < $THRESHOLD" | bc -l) || \
-                $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
-              echo "❌ $file failed:" >> $REPORT_FILE
+                  $(echo "$BRANCHES < $THRESHOLD" | bc -l) || \
+                  $(echo "$LINES < $THRESHOLD" | bc -l) || \
+                  $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
+              echo "❌ $file failed coverage check:" >> $REPORT_FILE
               echo "   - Statements: $STATEMENTS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
               echo "   - Branches:   $BRANCHES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
               echo "   - Lines:      $LINES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
               echo "   - Functions:  $FUNCTIONS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
+              echo "-----------------------------------" >> $REPORT_FILE
               FAILED_FILES=$((FAILED_FILES + 1))
             else
-              echo "✅ $file passed:" >> $REPORT_FILE
-              echo "   - Statements: $STATEMENTS%" >> $REPORT_FILE
               PASSED_FILES=$((PASSED_FILES + 1))
             fi
-            echo "-----------------------------------" >> $REPORT_FILE
           done <<< "$COMPONENT_FILES"
 
-          # Summary
           echo "📊 Coverage Summary:" >> $REPORT_FILE
           echo "   - Total components checked: $((FAILED_FILES + PASSED_FILES))" >> $REPORT_FILE
           echo "   - Passed: $PASSED_FILES" >> $REPORT_FILE
           echo "   - Failed: $FAILED_FILES" >> $REPORT_FILE
 
           if [ "$FAILED_FILES" -gt 0 ]; then
-            echo "❌ $FAILED_FILES component(s) below ${THRESHOLD}% coverage" >> $REPORT_FILE
+            COVERAGE_FAILED=1
+          fi
+
+          # Final decision
+          if [ "$TEST_FAILED" -eq 1 ] || [ "$COVERAGE_FAILED" -eq 1 ]; then
+            echo "❌ Test or Coverage failed" >> $REPORT_FILE
             echo "coverage_passed=false" >> $GITHUB_OUTPUT
             exit 1
           else
-            echo "✅ All components meet ${THRESHOLD}% coverage" >> $REPORT_FILE
+            echo "✅ All tests passed and coverage is above threshold" >> $REPORT_FILE
             echo "coverage_passed=true" >> $GITHUB_OUTPUT
           fi
 
