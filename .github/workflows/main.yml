@@ -57,7 +57,6 @@ jobs:
 
       - name: Clear Jest Cache
         run: npx jest --clearCache
-
       - name: Run Tests and Generate Coverage
         id: test_and_coverage
         run: |
@@ -89,9 +88,16 @@ jobs:
             exit 1
           fi
 
-          # Process coverage data
-          echo "Coverage data found. Processing..." >> $REPORT_FILE
-          npx jest-coverage-thresholds-bumper -p $COVERAGE_FILE -t $THRESHOLD >> $REPORT_FILE 2>&1 || COVERAGE_FAILED=1
+          # Process coverage data manually
+          echo -e "\nCoverage Summary:" >> $REPORT_FILE
+          npx jest --coverage --json | jq -r '.coverageMap | to_entries[] | "\(.key): \(.value.summary)"' >> $REPORT_FILE 2>&1 || COVERAGE_FAILED=1
+
+          # Check threshold violations
+          VIOLATIONS=$(npx jest --coverage --json | jq -r '.numFailedTestsByThresholds')
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            COVERAGE_FAILED=1
+            echo -e "\n❌ Coverage thresholds not met!" >> $REPORT_FILE
+          fi
 
           # Final decision
           if [ "$TEST_FAILED" -eq 1 ] || [ "$COVERAGE_FAILED" -eq 1 ]; then
