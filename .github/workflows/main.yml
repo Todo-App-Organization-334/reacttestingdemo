@@ -6,13 +6,13 @@ on:
       - main
 
 jobs:
-  # -------------------------------
+  # --------------------------------------
   # 1. TEST JOB: Lint, Format, Coverage
-  # -------------------------------
+  # --------------------------------------
   test:
     runs-on: ubuntu-latest
     outputs:
-      coverage_passed: ${{ steps.check_coverage.outputs.coverage_passed }}
+      coverage_passed: ${{ steps.test_and_coverage.outputs.coverage_passed }}
 
     steps:
       - name: Checkout Code
@@ -83,7 +83,12 @@ jobs:
             exit 1
           fi
 
-          COMPONENT_FILES=$(jq -r 'to_entries[] | select(.key | test("/src/components/") and test("__tests__") | not) | .key' "$COVERAGE_FILE")
+          COMPONENT_FILES=$(jq -r 'keys[]' "$COVERAGE_FILE" | while read -r fullpath; do
+            if [[ "$fullpath" != *"__tests__"* ]]; then
+              relpath=$(realpath --relative-to="$(pwd)" "$fullpath" 2>/dev/null || echo "$fullpath")
+              echo "$relpath"
+            fi
+          done)
 
           if [ -z "$COMPONENT_FILES" ]; then
             echo "❌ No component files found in coverage report!" >> $REPORT_FILE
@@ -95,15 +100,14 @@ jobs:
           PASSED_FILES=0
 
           while IFS= read -r file; do
-            STATEMENTS=$(jq -r ".[\"$file\"].statements.pct" "$COVERAGE_FILE")
-            BRANCHES=$(jq -r ".[\"$file\"].branches.pct" "$COVERAGE_FILE")
-            LINES=$(jq -r ".[\"$file\"].lines.pct" "$COVERAGE_FILE")
-            FUNCTIONS=$(jq -r ".[\"$file\"].functions.pct" "$COVERAGE_FILE")
-
-            RELATIVE_PATH=${file#*src/}
+            ABS_PATH=$(realpath "$file" 2>/dev/null || echo "$file")
+            STATEMENTS=$(jq -r ".[\"$ABS_PATH\"].statements.pct" "$COVERAGE_FILE")
+            BRANCHES=$(jq -r ".[\"$ABS_PATH\"].branches.pct" "$COVERAGE_FILE")
+            LINES=$(jq -r ".[\"$ABS_PATH\"].lines.pct" "$COVERAGE_FILE")
+            FUNCTIONS=$(jq -r ".[\"$ABS_PATH\"].functions.pct" "$COVERAGE_FILE")
 
             if [ "$STATEMENTS" = "null" ]; then
-              echo "⚠️ No coverage data for $RELATIVE_PATH" >> $REPORT_FILE
+              echo "⚠️ No coverage data for $file" >> $REPORT_FILE
               continue
             fi
 
@@ -111,7 +115,7 @@ jobs:
                   $(echo "$BRANCHES < $THRESHOLD" | bc -l) || \
                   $(echo "$LINES < $THRESHOLD" | bc -l) || \
                   $(echo "$FUNCTIONS < $THRESHOLD" | bc -l) )); then
-              echo "❌ $RELATIVE_PATH failed coverage check:" >> $REPORT_FILE
+              echo "❌ $file failed coverage check:" >> $REPORT_FILE
               echo "   - Statements: $STATEMENTS% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
               echo "   - Branches:   $BRANCHES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
               echo "   - Lines:      $LINES% (expected ≥$THRESHOLD%)" >> $REPORT_FILE
@@ -155,9 +159,9 @@ jobs:
           echo "Error report content:"
           cat error_reason.txt || echo "No error report file found"
 
-  # -------------------------------
+  # --------------------------------------
   # 2. DEPLOY JOB: Only if test passes
-  # -------------------------------
+  # --------------------------------------
   deploy:
     needs: test
     if: ${{ needs.test.outputs.coverage_passed == 'true' }}
@@ -200,9 +204,9 @@ jobs:
       - name: Debug - List S3 Bucket Contents
         run: aws s3 ls s3://${{ secrets.AWS_S3_BUCKET_NAME }} --recursive
 
-  # -------------------------------
+  # --------------------------------------
   # 3. NOTIFY ON SUCCESS
-  # -------------------------------
+  # --------------------------------------
   notify-success:
     needs: deploy
     if: ${{ success() }}
@@ -228,9 +232,9 @@ jobs:
 
             📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-  # -------------------------------
+  # --------------------------------------
   # 4. NOTIFY ON FAILURE
-  # -------------------------------
+  # --------------------------------------
   notify-failure:
     needs: test
     if: ${{ failure() && needs.test.result == 'failure' }}
@@ -273,6 +277,5 @@ jobs:
 
             <h3>Detailed Coverage Report:</h3>
             <pre>${{ steps.read_reason.outputs.body }}</pre>
-
 
             <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Logs</a></p>
