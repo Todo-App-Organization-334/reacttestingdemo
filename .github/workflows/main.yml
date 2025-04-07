@@ -6,13 +6,10 @@ on:
       - main
 
 jobs:
-  # -------------------------------
-  # 1. TEST JOB: Lint, Format, Coverage
-  # -------------------------------
   test:
     runs-on: ubuntu-latest
     outputs:
-      coverage_passed: ${{ steps.check_coverage.outputs.coverage_passed }}
+      coverage_passed: ${{ steps.set_output.outputs.coverage_passed }}
 
     steps:
       - name: Checkout Code
@@ -67,21 +64,19 @@ jobs:
           TEST_FAILED=0
           COVERAGE_FAILED=0
 
-          # Step 1: Run tests and capture result
           echo "📦 Running tests with coverage..."
           if ! npm test -- --coverage --collectCoverageFrom='src/components/**/*.js'; then
             echo "❌ Some tests failed!" >> $REPORT_FILE
             TEST_FAILED=1
           fi
 
-          # Step 2: Initialize report
           echo "📊 Detailed Component Coverage Report" >> $REPORT_FILE
           echo "Expected threshold: ${THRESHOLD}%" >> $REPORT_FILE
           echo "===================================" >> $REPORT_FILE
 
           if [ ! -f "$COVERAGE_FILE" ]; then
             echo "❌ Coverage report not found!" >> $REPORT_FILE
-            echo "coverage_passed=false" >> $GITHUB_OUTPUT
+            echo "coverage_passed=false" >> $GITHUB_ENV
             exit 1
           fi
 
@@ -89,7 +84,7 @@ jobs:
 
           if [ -z "$COMPONENT_FILES" ]; then
             echo "❌ No component files found in coverage report!" >> $REPORT_FILE
-            echo "coverage_passed=false" >> $GITHUB_OUTPUT
+            echo "coverage_passed=false" >> $GITHUB_ENV
             exit 1
           fi
 
@@ -132,15 +127,18 @@ jobs:
             COVERAGE_FAILED=1
           fi
 
-          # Final decision
           if [ "$TEST_FAILED" -eq 1 ] || [ "$COVERAGE_FAILED" -eq 1 ]; then
             echo "❌ Test or Coverage failed" >> $REPORT_FILE
-            echo "coverage_passed=false" >> $GITHUB_OUTPUT
+            echo "coverage_passed=false" >> $GITHUB_ENV
             exit 1
           else
             echo "✅ All tests passed and coverage is above threshold" >> $REPORT_FILE
-            echo "coverage_passed=true" >> $GITHUB_OUTPUT
+            echo "coverage_passed=true" >> $GITHUB_ENV
           fi
+
+      - name: Set Output from ENV
+        id: set_output
+        run: echo "coverage_passed=${{ env.coverage_passed }}" >> $GITHUB_OUTPUT
 
       - name: Upload Error Report
         if: always()
@@ -152,9 +150,7 @@ jobs:
 
       - name: Debug - Show Error Report
         if: always()
-        run: |
-          echo "Error report content:"
-          cat error_reason.txt || echo "No error report file found"
+        run: cat error_reason.txt || echo "No error report file found"
 
   # -------------------------------
   # 2. DEPLOY JOB: Only if test passes
