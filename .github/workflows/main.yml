@@ -228,6 +228,20 @@ jobs:
             ✅ Triggered by: ${{ github.actor }}
 
             📂 [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+      - name: Slack Notification - Success
+        uses: 8398a7/action-slack@v3
+        with:
+          custom_payload: |
+            {
+              "text": "🚀 *Deployment Status*: ${{ job.status }}\n📦 *Repo*: ${{ github.repository }}\n🔀 *Branch*: ${{ github.ref_name }}\n👤 *Triggered by*: ${{ github.actor }}",
+              "username": "CI Bot",
+              "icon_emoji": ":rocket:"
+            }
+          status: success
+          author_name: ${{ github.actor }}
+          fields: repo,commit,author,job,ref
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   # -------------------------------
   # 4. NOTIFY ON FAILURE
@@ -277,3 +291,18 @@ jobs:
 
 
             <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Logs</a></p>
+
+      - name: Slack Notification - Failure
+        uses: 8398a7/action-slack@v3
+        with:
+          custom_payload: |
+            {
+              "text": "🚀 *Deployment Status*: ${{ job.status }}\n📦 *Repo*: ${{ github.repository }}\n🔀 *Branch*: ${{ github.ref_name }}\n👤 *Triggered by*: ${{ github.actor }}",
+              "username": "CI Bot",
+              "icon_emoji": ":rocket:"
+            }
+          status: failure
+          author_name: ${{ github.actor }}
+          fields: repo,commit,author,job,ref
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
