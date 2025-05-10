@@ -3,7 +3,15 @@ name: Deploy to AWS S3
 on:
   push:
     branches:
+      - main # For any push to main
+      - develop # For any push to develop
+      - parent-feature # For push to the parent feature branch (important for integration)
+      - 'feature/*' # This will cover all feature branches (e.g., `feature/test-ui`, `feature/login-ui`)
+  pull_request:
+    branches:
       - main
+      - develop
+      - parent-feature # Ensure the PR from feature branches are validated before merging into parent-feature
 
 jobs:
   test:
