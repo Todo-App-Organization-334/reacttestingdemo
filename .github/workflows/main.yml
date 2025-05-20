@@ -165,9 +165,8 @@ jobs:
   # -------------------------------
   deploy:
     needs: test
-    if: ${{ needs.test.outputs.coverage_passed == 'true' }}
+    if: ${{ needs.test.outputs.coverage_passed == 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -210,7 +209,7 @@ jobs:
   # -------------------------------
   notify-success:
     needs: deploy
-    if: ${{ success() }}
+    if: ${{ success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
     runs-on: ubuntu-latest
 
     steps:
