@@ -9,7 +9,9 @@ function Todo() {
 
   return (
     <div className="todo">
+    
       <Header title="TODO LISTT" />
+
       <AddInput setTodos={setTodos} todos={todos} />
       <TodoList todos={todos} setTodos={setTodos} />
     </div>
