@@ -1,0 +1,10 @@
+# Codeowners for root files
+* @nam334test
+
+
+# GitHub workflows owned by a specific user
+.github/workflows/ @nam334test
+
+# PR templates
+.github/PULL_REQUEST_TEMPLATE.md @nam334test
+
