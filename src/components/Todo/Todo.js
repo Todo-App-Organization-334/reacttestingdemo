@@ -9,7 +9,7 @@ function Todo() {
 
   return (
     <div className="todo">
-      <Header title="TODO LISTTTTTTT From Parent Feature" />
+      <Header title="TODO LIST" />
 
       <AddInput setTodos={setTodos} todos={todos} />
       <TodoList todos={todos} setTodos={setTodos} />
