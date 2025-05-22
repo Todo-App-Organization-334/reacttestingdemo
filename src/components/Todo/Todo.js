@@ -10,6 +10,8 @@ function Todo() {
   return (
     <div className="todo">
       <Header title="TODO LIST From Parent Feature" />
+      <Header title="TODO LISTTTTTTT From Parent Feature" />
+
       <AddInput setTodos={setTodos} todos={todos} />
       <TodoList todos={todos} setTodos={setTodos} />
     </div>
